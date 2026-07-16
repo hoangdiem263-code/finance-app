@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tài chính cá nhân</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg:#ffffff;--bg2:#f7f7f5;--bg3:#f0efeb;
+  --text:#1a1a18;--text2:#6b6b67;--text3:#9e9e9a;
+  --border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.18);
+  --green:#1D9E75;--green-bg:#EAF3DE;--green-text:#3B6D11;
+  --red:#A32D2D;--red-bg:#FCEBEB;--red-text:#A32D2D;
+  --amber:#BA7517;--amber-bg:#FAEEDA;--amber-text:#854F0B;
+  --blue:#185FA5;--blue-bg:#E6F1FB;--blue-text:#185FA5;
+  --purple-bg:#EEEDFE;--purple-text:#3C3489;
+  --radius:8px;--radius-lg:12px;--sidebar-w:220px;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#1c1c1a;--bg2:#252523;--bg3:#2e2e2b;
+    --text:#f0efe9;--text2:#a0a09a;--text3:#6a6a65;
+    --border:rgba(255,255,255,0.1);--border2:rgba(255,255,255,0.18);
+    --green-bg:#0a3325;--green-text:#5DCAA5;
+    --red-bg:#3a1010;--red-text:#F09595;
+    --amber-bg:#3a2a05;--amber-text:#EF9F27;
+    --blue-bg:#0a2040;--blue-text:#85B7EB;
+    --purple-bg:#1a1840;--purple-text:#AFA9EC;
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg3);color:var(--text);font-size:14px;min-height:100vh}
+.app{display:flex;min-height:100vh}
+.sidebar{width:var(--sidebar-w);background:var(--bg);border-right:0.5px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:10}
+.sidebar-logo{padding:20px 20px 16px;border-bottom:0.5px solid var(--border)}
+.sidebar-logo h1{font-size:15px;font-weight:600}
+.sidebar-logo p{font-size:11px;color:var(--text3);margin-top:2px}
+.sidebar-nav{flex:1;padding:12px 0}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;font-size:13px;color:var(--text2);cursor:pointer;border-left:2px solid transparent;transition:all .15s}
+.nav-item:hover{background:var(--bg2);color:var(--text)}
+.nav-item.active{background:var(--bg2);color:var(--text);border-left-color:var(--text);font-weight:500}
+.nav-item i{font-size:18px}
+.sidebar-footer{padding:16px 20px;border-top:0.5px solid var(--border)}
+.sync-status{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0}
+.sync-dot.syncing{background:var(--amber);animation:pulse 1s infinite}
+.sync-dot.error{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.main{margin-left:var(--sidebar-w);flex:1;padding:28px 32px;max-width:960px}
+.page{display:none}.page.active{display:block}
+.page-title{font-size:20px;font-weight:600;margin-bottom:24px}
+.card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:16px}
+.card-title{font-size:11px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:14px}
+.card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.metric{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px}
+.metric-label{font-size:11px;color:var(--text2);margin-bottom:6px}
+.metric-val{font-size:22px;font-weight:600}
+.metric-sub{font-size:11px;color:var(--text3);margin-top:4px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.form-label{font-size:12px;color:var(--text2);margin-bottom:5px;display:block}
+.form-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.form-col{display:flex;flex-direction:column;flex:1;min-width:120px}
+input,select{background:var(--bg2);border:0.5px solid var(--border2);border-radius:var(--radius);padding:8px 12px;font-size:13px;color:var(--text);width:100%;outline:none;font-family:inherit}
+input:focus,select:focus{border-color:var(--text2)}
+.btn{padding:9px 18px;border-radius:var(--radius);font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;border:none;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--text);color:var(--bg)}
+.btn-outline{background:transparent;border:0.5px solid var(--border2);color:var(--text)}
+.btn-danger{background:var(--red-bg);color:var(--red-text);padding:5px 10px;font-size:11px;border-radius:6px}
+.btn-success{background:var(--green-bg);color:var(--green-text);padding:5px 10px;font-size:11px;border-radius:6px}
+.btn-sm{padding:6px 12px;font-size:12px}
+.tag{display:inline-flex;align-items:center;font-size:11px;padding:2px 9px;border-radius:20px;white-space:nowrap;font-weight:500}
+.tag-green{background:var(--green-bg);color:var(--green-text)}
+.tag-red{background:var(--red-bg);color:var(--red-text)}
+.tag-amber{background:var(--amber-bg);color:var(--amber-text)}
+.tag-blue{background:var(--blue-bg);color:var(--blue-text)}
+.tag-purple{background:var(--purple-bg);color:var(--purple-text)}
+.tag-gray{background:var(--bg3);color:var(--text2)}
+.row-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:0.5px solid var(--border)}
+.row-item:last-child{border-bottom:none}
+.row-main{flex:1;min-width:0}
+.row-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.row-amt{font-size:13px;font-weight:600;white-space:nowrap;text-align:right;min-width:80px}
+.icon-circle{width:34px;height:34px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.icon-circle i{font-size:16px;color:var(--text2)}
+.progress{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;margin-top:8px}
+.progress-fill{height:100%;border-radius:3px;transition:width .4s}
+.c-green{color:var(--green)}.c-red{color:var(--red)}.c-amber{color:var(--amber)}.c-blue{color:var(--blue)}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
+.legend-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.empty{text-align:center;padding:32px;color:var(--text3);font-size:13px}
+.empty i{font-size:32px;display:block;margin-bottom:8px;opacity:.4}
+.notice{background:var(--blue-bg);color:var(--blue-text);border-radius:var(--radius);padding:10px 14px;font-size:12px;margin-bottom:16px;display:flex;gap:8px;align-items:flex-start}
+.notice i{font-size:16px;flex-shrink:0;margin-top:1px}
+.filter-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.filter-btn{padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;border:0.5px solid var(--border2);background:transparent;color:var(--text2)}
+.filter-btn.active{background:var(--text);color:var(--bg);border-color:var(--text)}
+.setting-row{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:0.5px solid var(--border)}
+.setting-row:last-child{border-bottom:none}
+.setting-label{font-size:13px;font-weight:500}
+.setting-desc{font-size:11px;color:var(--text3);margin-top:2px}
+.section-title{font-size:13px;font-weight:500;color:var(--text2);margin:20px 0 10px}
+.debt-card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:10px}
+/* Loading overlay */
+#loading-overlay{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;gap:12px}
+#loading-overlay.hidden{display:none}
+.spinner{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--text);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div style="font-size:13px;color:var(--text2)">Đang kết nối Supabase...</div>
+</div>
+
+<div class="app" id="main-app" style="display:none">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h1>Tài chính cá nhân</h1>
+      <p id="user-name-display">Người dùng</p>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-item active" onclick="showPage('dashboard')"><i class="ti ti-chart-pie"></i> Dashboard</div>
+      <div class="nav-item" onclick="showPage('transactions')"><i class="ti ti-list-details"></i> Giao dịch</div>
+      <div class="nav-item" onclick="showPage('credit')"><i class="ti ti-credit-card"></i> Thẻ tín dụng</div>
+      <div class="nav-item" onclick="showPage('debts')"><i class="ti ti-users"></i> Công nợ</div>
+      <div class="nav-item" onclick="showPage('goals')"><i class="ti ti-target"></i> Mục tiêu</div>
+      <div class="nav-item" onclick="showPage('settings')"><i class="ti ti-settings"></i> Cài đặt</div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sync-status">
+        <div class="sync-dot" id="sync-dot"></div>
+        <span id="sync-text">Đã đồng bộ</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page active">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h2 class="page-title" style="margin-bottom:0">Tổng quan</h2>
+        <select id="dash-month" onchange="renderDashboard()" style="max-width:160px;font-size:12px"></select>
+      </div>
+      <div class="metrics-grid" id="dash-metrics"></div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">Chi tiêu theo danh mục</div>
+          <div style="position:relative;height:200px"><canvas id="chart-cat"></canvas></div>
+          <div class="legend" id="cat-legend"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Dòng tiền 6 tháng</div>
+          <div style="position:relative;height:200px"><canvas id="chart-net"></canvas></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Ngân sách tháng (50 / 20 / 30)</div>
+        <div id="budget-bars"></div>
+      </div>
+    </div>
+
+    <!-- TRANSACTIONS -->
+    <div id="page-transactions" class="page">
+      <h2 class="page-title">Giao dịch</h2>
+      <div class="card">
+        <div class="card-title">Thêm giao dịch mới</div>
+        <div class="notice"><i class="ti ti-info-circle"></i>Thẻ tín dụng: ghi ngay khi quẹt thẻ. Chi hộ ai → chọn "Chi hộ"; khi được hoàn → chọn "Hoàn tiền".</div>
+        <div class="form-row" style="margin-bottom:10px">
+          <div class="form-col"><label class="form-label">Ngày</label><input type="date" id="tx-date"></div>
+          <div class="form-col" style="flex:2"><label class="form-label">Nội dung</label><input type="text" id="tx-desc" placeholder="Mô tả giao dịch..."></div>
+        </div>
+        <div class="form-row" style="margin-bottom:10px">
+          <div class="form-col"><label class="form-label">Danh mục</label>
+            <select id="tx-cat">
+              <option>Ăn uống</option><option>Di chuyển</option><option>Mua sắm</option>
+              <option>Giải trí</option><option>Sức khỏe</option><option>Gia đình</option>
+              <option>Hóa đơn</option><option>Thu nhập</option><option>Tiết kiệm</option>
+              <option>Chi hộ</option><option>Đầu tư</option><option>Khác</option>
+            </select>
+          </div>
+          <div class="form-col"><label class="form-label">Loại</label>
+            <select id="tx-type">
+              <option value="expense">Chi tiêu</option>
+              <option value="income">Thu nhập</option>
+              <option value="saving">Tiết kiệm</option>
+              <option value="on-behalf">Chi hộ (cho nợ)</option>
+              <option value="refund">Hoàn tiền</option>
+              <option value="cc">Thẻ tín dụng</option>
+            </select>
+          </div>
+          <div class="form-col"><label class="form-label">Phương thức</label>
+            <select id="tx-pay"><option>Tiền mặt</option><option>Thẻ nội địa</option><option>Visa</option><option>Mastercard</option><option>Chuyển khoản</option></select>
+          </div>
+          <div class="form-col"><label class="form-label">Số tiền (đ)</label><input type="number" id="tx-amount" placeholder="0" min="0"></div>
+        </div>
+        <button class="btn btn-primary" id="btn-add-tx" onclick="addTransaction()"><i class="ti ti-plus"></i> Thêm</button>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div class="filter-bar" style="margin-bottom:0">
+          <button class="filter-btn active" onclick="setTxFilter(this,'all')">Tất cả</button>
+          <button class="filter-btn" onclick="setTxFilter(this,'expense')">Chi tiêu</button>
+          <button class="filter-btn" onclick="setTxFilter(this,'income')">Thu nhập</button>
+          <button class="filter-btn" onclick="setTxFilter(this,'cc')">Thẻ TD</button>
+          <button class="filter-btn" onclick="setTxFilter(this,'on-behalf')">Chi hộ</button>
+        </div>
+        <select id="tx-month-filter" onchange="renderTransactions()" style="max-width:140px;font-size:12px"></select>
+      </div>
+      <div class="card" style="padding:0 20px"><div id="tx-list" style="padding:4px 0"></div></div>
+    </div>
+
+    <!-- CREDIT CARDS -->
+    <div id="page-credit" class="page">
+      <h2 class="page-title">Thẻ tín dụng</h2>
+      <div class="card">
+        <div class="card-title">Thêm thẻ mới</div>
+        <div class="form-row" style="margin-bottom:10px">
+          <div class="form-col" style="flex:2"><label class="form-label">Tên thẻ</label><input type="text" id="cc-name" placeholder="Visa Vietcombank, MC BIDV..."></div>
+          <div class="form-col"><label class="form-label">Hạn mức (đ)</label><input type="number" id="cc-limit" placeholder="30000000"></div>
+          <div class="form-col"><label class="form-label">Ngày sao kê</label><input type="date" id="cc-due"></div>
+        </div>
+        <button class="btn btn-primary" id="btn-add-card" onclick="addCard()"><i class="ti ti-plus"></i> Thêm thẻ</button>
+      </div>
+      <div id="cc-list"></div>
+    </div>
+
+    <!-- DEBTS -->
+    <div id="page-debts" class="page">
+      <h2 class="page-title">Công nợ</h2>
+      <div class="card">
+        <div class="card-title">Ghi công nợ mới</div>
+        <div class="form-row" style="margin-bottom:10px">
+          <div class="form-col"><label class="form-label">Tên người</label><input type="text" id="debt-name" placeholder="Bạn bè / đồng nghiệp"></div>
+          <div class="form-col"><label class="form-label">Số tiền (đ)</label><input type="number" id="debt-amount" placeholder="0"></div>
+          <div class="form-col"><label class="form-label">Chiều</label>
+            <select id="debt-dir"><option value="owed-to-me">Họ nợ tôi</option><option value="i-owe">Tôi nợ họ</option></select>
+          </div>
+          <div class="form-col" style="flex:2"><label class="form-label">Ghi chú</label><input type="text" id="debt-note" placeholder="Mua đồ ăn, tiền xăng..."></div>
+        </div>
+        <button class="btn btn-primary" id="btn-add-debt" onclick="addDebt()"><i class="ti ti-plus"></i> Ghi nợ</button>
+      </div>
+      <div id="debt-summary" style="margin-bottom:16px"></div>
+      <div class="grid2" id="debts-grid"></div>
+      <div id="debts-settled"></div>
+    </div>
+
+    <!-- GOALS -->
+    <div id="page-goals" class="page">
+      <h2 class="page-title">Mục tiêu tiết kiệm</h2>
+      <div class="card">
+        <div class="card-title">Thêm mục tiêu</div>
+        <div class="form-row" style="margin-bottom:10px">
+          <div class="form-col" style="flex:2"><label class="form-label">Tên mục tiêu</label><input type="text" id="goal-name" placeholder="Quỹ khẩn cấp, Cọc nhà, Mua xe..."></div>
+          <div class="form-col"><label class="form-label">Mục tiêu (đ)</label><input type="number" id="goal-target" placeholder="50000000"></div>
+          <div class="form-col"><label class="form-label">Đã có (đ)</label><input type="number" id="goal-current" placeholder="0"></div>
+          <div class="form-col"><label class="form-label">Hạn</label><input type="date" id="goal-deadline"></div>
+        </div>
+        <button class="btn btn-primary" id="btn-add-goal" onclick="addGoal()"><i class="ti ti-plus"></i> Thêm</button>
+      </div>
+      <div id="goals-list"></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="page-settings" class="page">
+      <h2 class="page-title">Cài đặt</h2>
+      <div class="card">
+        <div class="card-title">Thông tin cá nhân</div>
+        <div class="form-row" style="margin-bottom:12px">
+          <div class="form-col"><label class="form-label">Tên hiển thị</label><input type="text" id="set-name" placeholder="Tên của bạn"></div>
+          <div class="form-col"><label class="form-label">Thu nhập hàng tháng (đ)</label><input type="number" id="set-income" placeholder="32000000"></div>
+        </div>
+        <button class="btn btn-primary" onclick="saveSettings()"><i class="ti ti-check"></i> Lưu</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Dữ liệu</div>
+        <div class="setting-row">
+          <div><div class="setting-label">Xuất JSON (backup)</div><div class="setting-desc">Tải toàn bộ dữ liệu về máy</div></div>
+          <button class="btn btn-outline btn-sm" onclick="exportData()"><i class="ti ti-download"></i> Xuất</button>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Xuất CSV giao dịch</div><div class="setting-desc">Mở bằng Excel / Google Sheets</div></div>
+          <button class="btn btn-outline btn-sm" onclick="exportCSV()"><i class="ti ti-file-spreadsheet"></i> CSV</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Kết nối Supabase</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.8">
+          <p>Project URL: <code style="font-size:11px;background:var(--bg2);padding:2px 6px;border-radius:4px">https://ycxpndwxtjyqvojudcrr.supabase.co</code></p>
+          <p style="margin-top:6px">Dữ liệu lưu trên Supabase PostgreSQL — đồng bộ realtime giữa tất cả thiết bị đăng nhập vào file này.</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────
+const SUPABASE_URL = 'https://ycxpndwxtjyqvojudcrr.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InljeHBuZHd4dGp5cXZvanVkY3JyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MDgyNjAsImV4cCI6MjA5NzA4NDI2MH0.WPDA8rkk2eAXUQOrs5P8KLUQrGcn8a7RLr3n6br4NuM';
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ─── STATE ────────────────────────────────────────────────
+let DB = { settings: null, transactions: [], cards: [], debts: [], goals: [] };
+let txFilter = 'all';
+let chartCat = null, chartNet = null;
+
+// ─── CONSTANTS ────────────────────────────────────────────
+const CAT_COLORS = ['#1D9E75','#378ADD','#BA7517','#D4537E','#7F77DD','#D85A30','#639922','#888780','#E24B4A','#0F6E56'];
+const CAT_ICONS = {'Ăn uống':'ti-soup','Di chuyển':'ti-car','Mua sắm':'ti-shopping-bag','Giải trí':'ti-device-gamepad','Sức khỏe':'ti-heart','Gia đình':'ti-home','Hóa đơn':'ti-receipt','Thu nhập':'ti-cash','Tiết kiệm':'ti-piggy-bank','Chi hộ':'ti-users','Đầu tư':'ti-trending-up','Khác':'ti-dots'};
+const TYPE_LABEL = {expense:'Chi tiêu',income:'Thu nhập',saving:'Tiết kiệm','on-behalf':'Chi hộ',refund:'Hoàn tiền',cc:'Thẻ TD'};
+const TYPE_TAG = {expense:'tag-amber',income:'tag-green',saving:'tag-blue','on-behalf':'tag-purple',refund:'tag-green',cc:'tag-red'};
+
+// ─── HELPERS ──────────────────────────────────────────────
+function fmt(v) {
+  const n = Math.round(v);
+  if (Math.abs(n) >= 1000000000) return (n/1e9).toFixed(1) + ' tỷ';
+  if (Math.abs(n) >= 1000000) return (n/1e6).toFixed(1) + 'tr';
+  if (Math.abs(n) >= 1000) return Math.round(n/1000) + 'k';
+  return n.toLocaleString('vi-VN') + 'đ';
+}
+function fmtFull(v) { return Math.round(v).toLocaleString('vi-VN') + 'đ'; }
+
+function setSyncStatus(state) {
+  const dot = document.getElementById('sync-dot');
+  const text = document.getElementById('sync-text');
+  dot.className = 'sync-dot' + (state === 'syncing' ? ' syncing' : state === 'error' ? ' error' : '');
+  const now = new Date().toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
+  text.textContent = state === 'syncing' ? 'Đang đồng bộ...' : state === 'error' ? 'Lỗi kết nối' : 'Đồng bộ ' + now;
+}
+
+function getMonthsList() {
+  const months = new Set();
+  const now = new Date();
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.add(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
+  }
+  DB.transactions.forEach(t => { if(t.date) months.add(t.date.slice(0,7)); });
+  return [...months].sort().reverse();
+}
+
+function populateMonthSelectors() {
+  const months = getMonthsList();
+  const now = new Date();
+  const cur = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  ['dash-month','tx-month-filter'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const prev = sel.value || cur;
+    sel.innerHTML = months.map(m => {
+      const [y,mo] = m.split('-');
+      return `<option value="${m}" ${m===prev?'selected':''}>T${parseInt(mo)}/${y}</option>`;
+    }).join('');
+  });
+}
+
+function getTxsByMonth(ym) {
+  return DB.transactions.filter(t => t.date && t.date.slice(0,7) === ym);
+}
+
+// ─── INIT & LOAD ──────────────────────────────────────────
+async function init() {
+  try {
+    const [s, t, c, d, g] = await Promise.all([
+      sb.from('settings').select('*').limit(1).single(),
+      sb.from('transactions').select('*').order('date', {ascending:false}).order('created_at', {ascending:false}),
+      sb.from('credit_cards').select('*').order('created_at'),
+      sb.from('debts').select('*').order('created_at', {ascending:false}),
+      sb.from('goals').select('*').order('created_at'),
+    ]);
+
+    if (s.data) DB.settings = s.data;
+    DB.transactions = t.data || [];
+    DB.cards = c.data || [];
+    DB.debts = d.data || [];
+    DB.goals = g.data || [];
+
+    // Apply settings
+    if (DB.settings) {
+      document.getElementById('user-name-display').textContent = DB.settings.name;
+      document.getElementById('set-name').value = DB.settings.name;
+      document.getElementById('set-income').value = DB.settings.monthly_income;
+    }
+
+    // Set default date
+    document.getElementById('tx-date').value = new Date().toISOString().split('T')[0];
+
+    // Show app
+    document.getElementById('loading-overlay').classList.add('hidden');
+    document.getElementById('main-app').style.display = 'flex';
+
+    populateMonthSelectors();
+    renderDashboard();
+    subscribeRealtime();
+    setSyncStatus('ok');
+  } catch(e) {
+    console.error(e);
+    document.getElementById('loading-overlay').innerHTML = `
+      <div style="font-size:14px;color:var(--red-text);text-align:center;padding:2rem">
+        <i class="ti ti-wifi-off" style="font-size:32px;display:block;margin-bottom:12px"></i>
+        Không kết nối được Supabase.<br>
+        <span style="font-size:12px;color:var(--text3)">Kiểm tra lại Project URL và API key.</span>
+      </div>`;
+    setSyncStatus('error');
+  }
+}
+
+// ─── REALTIME ─────────────────────────────────────────────
+function subscribeRealtime() {
+  sb.channel('finance-changes')
+    .on('postgres_changes', {event:'*', schema:'public', table:'transactions'}, payload => {
+      handleRealtime('transactions', payload);
+    })
+    .on('postgres_changes', {event:'*', schema:'public', table:'credit_cards'}, payload => {
+      handleRealtime('cards', payload);
+    })
+    .on('postgres_changes', {event:'*', schema:'public', table:'debts'}, payload => {
+      handleRealtime('debts', payload);
+    })
+    .on('postgres_changes', {event:'*', schema:'public', table:'goals'}, payload => {
+      handleRealtime('goals', payload);
+    })
+    .on('postgres_changes', {event:'*', schema:'public', table:'settings'}, payload => {
+      if(payload.new) { DB.settings = payload.new; applySettings(); }
+    })
+    .subscribe();
+}
+
+function handleRealtime(table, payload) {
+  setSyncStatus('syncing');
+  const key = table;
+  const arr = DB[key];
+  if (payload.eventType === 'INSERT') {
+    if (!arr.find(r => r.id === payload.new.id)) arr.unshift(payload.new);
+  } else if (payload.eventType === 'UPDATE') {
+    const idx = arr.findIndex(r => r.id === payload.new.id);
+    if (idx !== -1) arr[idx] = payload.new; else arr.unshift(payload.new);
+  } else if (payload.eventType === 'DELETE') {
+    DB[key] = arr.filter(r => r.id !== payload.old.id);
+  }
+  refreshCurrentPage();
+  setSyncStatus('ok');
+}
+
+function refreshCurrentPage() {
+  const active = document.querySelector('.page.active');
+  if (!active) return;
+  const id = active.id;
+  if (id==='page-dashboard') renderDashboard();
+  if (id==='page-transactions') renderTransactions();
+  if (id==='page-credit') renderCredit();
+  if (id==='page-debts') renderDebts();
+  if (id==='page-goals') renderGoals();
+}
+
+// ─── NAVIGATION ───────────────────────────────────────────
+function showPage(p) {
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('page-'+p).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(el => {
+    if (el.getAttribute('onclick') && el.getAttribute('onclick').includes("'"+p+"'")) el.classList.add('active');
+  });
+  populateMonthSelectors();
+  if (p==='dashboard') renderDashboard();
+  if (p==='transactions') renderTransactions();
+  if (p==='credit') renderCredit();
+  if (p==='debts') renderDebts();
+  if (p==='goals') renderGoals();
+}
+
+// ─── DASHBOARD ────────────────────────────────────────────
+function renderDashboard() {
+  populateMonthSelectors();
+  const ym = document.getElementById('dash-month').value;
+  const txs = getTxsByMonth(ym);
+  const income = txs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const expenses = txs.filter(t=>['expense','cc'].includes(t.type)).reduce((s,t)=>s+t.amount,0);
+  const saving = txs.filter(t=>t.type==='saving').reduce((s,t)=>s+t.amount,0);
+  const ccTotal = DB.cards.reduce((s,c)=>s+c.balance,0);
+  const owedToMe = DB.debts.filter(d=>d.dir==='owed-to-me'&&!d.settled).reduce((s,d)=>s+d.amount,0);
+  const iOwe = DB.debts.filter(d=>d.direction==='i-owe'&&!d.settled).reduce((s,d)=>s+d.amount,0);
+  const monthlyIncome = DB.settings?.monthly_income || 32000000;
+
+  document.getElementById('dash-metrics').innerHTML = `
+    <div class="metric"><div class="metric-label">Thu nhập tháng này</div><div class="metric-val c-green">${fmt(income||monthlyIncome)}</div><div class="metric-sub">Dự kiến: ${fmt(monthlyIncome)}</div></div>
+    <div class="metric"><div class="metric-label">Chi tiêu</div><div class="metric-val c-red">${fmt(expenses)}</div><div class="metric-sub">${monthlyIncome>0?Math.round(expenses/monthlyIncome*100):0}% thu nhập</div></div>
+    <div class="metric"><div class="metric-label">Tiết kiệm</div><div class="metric-val c-blue">${fmt(saving)}</div><div class="metric-sub">Mục tiêu: ${fmt(monthlyIncome*.2)}/tháng</div></div>
+    <div class="metric"><div class="metric-label">Nợ thẻ tín dụng</div><div class="metric-val c-red">${fmt(ccTotal)}</div><div class="metric-sub">Người nợ tôi: ${fmt(owedToMe)}</div></div>
+  `;
+
+  // Pie chart
+  const cats = {};
+  txs.filter(t=>['expense','cc'].includes(t.type)).forEach(t=>{ cats[t.category]=(cats[t.category]||0)+t.amount; });
+  const labels=Object.keys(cats), vals=Object.values(cats);
+  if (chartCat) { chartCat.destroy(); chartCat=null; }
+  if (labels.length > 0) {
+    chartCat = new Chart(document.getElementById('chart-cat'), {
+      type:'doughnut',
+      data:{labels,datasets:[{data:vals,backgroundColor:CAT_COLORS.slice(0,labels.length),borderWidth:2,borderColor:getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#fff'}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.label+': '+fmt(c.raw)}}}}
+    });
+    document.getElementById('cat-legend').innerHTML = labels.map((l,i)=>`<div class="legend-item"><div class="legend-dot" style="background:${CAT_COLORS[i]}"></div>${l} ${fmt(vals[i])}</div>`).join('');
+  } else {
+    document.getElementById('cat-legend').innerHTML = '<span style="font-size:12px;color:var(--text3)">Chưa có giao dịch chi tiêu tháng này</span>';
+  }
+
+  // Line chart
+  const months = getMonthsList().slice(0,6).reverse();
+  const netArr = months.map(m => {
+    const mt = getTxsByMonth(m);
+    const inc = mt.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0) || monthlyIncome;
+    const exp = mt.filter(t=>['expense','cc'].includes(t.type)).reduce((s,t)=>s+t.amount,0);
+    return inc - exp;
+  });
+  if (chartNet) { chartNet.destroy(); chartNet=null; }
+  chartNet = new Chart(document.getElementById('chart-net'), {
+    type:'line',
+    data:{labels:months.map(m=>{const[y,mo]=m.split('-');return'T'+parseInt(mo)+'/'+y.slice(2)}),datasets:[{label:'Dòng tiền',data:netArr,borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.07)',tension:0.35,fill:true,pointBackgroundColor:'#1D9E75',pointRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>fmt(v)},grid:{color:'rgba(128,128,128,0.08)'}},x:{grid:{display:false}}}}
+  });
+
+  // Budget bars
+  const inc = monthlyIncome;
+  const budgets = [
+    {label:'Nhu cầu thiết yếu (50%)',target:inc*.5,actual:txs.filter(t=>['Ăn uống','Di chuyển','Hóa đơn','Gia đình','Sức khỏe'].includes(t.category)&&['expense','cc'].includes(t.type)).reduce((s,t)=>s+t.amount,0),color:'#1D9E75'},
+    {label:'Tiết kiệm & đầu tư (20%)',target:inc*.2,actual:saving,color:'#378ADD'},
+    {label:'Cá nhân & giải trí (30%)',target:inc*.3,actual:txs.filter(t=>['Mua sắm','Giải trí','Khác'].includes(t.category)&&['expense','cc'].includes(t.type)).reduce((s,t)=>s+t.amount,0),color:'#BA7517'},
+  ];
+  document.getElementById('budget-bars').innerHTML = budgets.map(b=>{
+    const pct=b.target>0?Math.min(100,Math.round(b.actual/b.target*100)):0;
+    const over=b.actual>b.target;
+    return `<div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">
+        <span style="color:var(--text2)">${b.label}</span>
+        <span style="font-weight:500;color:${over?'var(--red)':'var(--text)'}">${fmt(b.actual)} / ${fmt(b.target)}</span>
+      </div>
+      <div class="progress"><div class="progress-fill" style="width:${pct}%;background:${over?'var(--red)':b.color}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// ─── TRANSACTIONS ─────────────────────────────────────────
+function setTxFilter(btn, f) {
+  txFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTransactions();
+}
+
+function renderTransactions() {
+  const ym = document.getElementById('tx-month-filter')?.value;
+  let txs = [...DB.transactions];
+  if (ym) txs = txs.filter(t => t.date && t.date.slice(0,7) === ym);
+  if (txFilter !== 'all') txs = txs.filter(t => t.type === txFilter);
+
+  if (txs.length === 0) {
+    document.getElementById('tx-list').innerHTML = '<div class="empty"><i class="ti ti-inbox"></i>Chưa có giao dịch nào</div>';
+    return;
+  }
+  document.getElementById('tx-list').innerHTML = txs.map(t=>`
+    <div class="row-item">
+      <div class="icon-circle"><i class="ti ${CAT_ICONS[t.category]||'ti-dots'}"></i></div>
+      <div class="row-main">
+        <div class="row-name">${t.description}</div>
+        <div class="row-sub">${t.date} · ${t.category} · ${t.payment_method}</div>
+      </div>
+      <span class="tag ${TYPE_TAG[t.type]}">${TYPE_LABEL[t.type]}</span>
+      <div class="row-amt ${t.type==='income'||t.type==='refund'?'c-green':'c-red'}">${t.type==='income'||t.type==='refund'?'+':'−'}${fmt(t.amount)}</div>
+      <button class="btn btn-danger" onclick="deleteTx('${t.id}')"><i class="ti ti-trash"></i></button>
+    </div>`).join('');
+}
+
+async function addTransaction() {
+  const date = document.getElementById('tx-date').value;
+  const desc = document.getElementById('tx-desc').value.trim();
+  const cat = document.getElementById('tx-cat').value;
+  const type = document.getElementById('tx-type').value;
+  const amount = parseInt(document.getElementById('tx-amount').value);
+  const pay = document.getElementById('tx-pay').value;
+  if (!desc || !amount || !date || isNaN(amount)) { alert('Vui lòng điền đầy đủ'); return; }
+
+  const btn = document.getElementById('btn-add-tx');
+  btn.disabled = true;
+  setSyncStatus('syncing');
+
+  const { error } = await sb.from('transactions').insert({
+    date, description: desc, category: cat, type, amount, payment_method: pay
+  });
+
+  // If cc type, update card balance
+  if (!error && type === 'cc') {
+    const payLower = pay.toLowerCase();
+    const card = DB.cards.find(c => c.name.toLowerCase().split(' ').some(w => payLower.includes(w)));
+    if (card) {
+      await sb.from('credit_cards').update({ balance: card.balance + amount, updated_at: new Date().toISOString() }).eq('id', card.id);
+    }
+  }
+
+  if (error) { alert('Lỗi: ' + error.message); setSyncStatus('error'); }
+  else {
+    document.getElementById('tx-desc').value = '';
+    document.getElementById('tx-amount').value = '';
+    setSyncStatus('ok');
+    // Reload transactions
+    const { data } = await sb.from('transactions').select('*').order('date',{ascending:false}).order('created_at',{ascending:false});
+    if (data) DB.transactions = data;
+    renderTransactions();
+  }
+  btn.disabled = false;
+}
+
+async function deleteTx(id) {
+  if (!confirm('Xóa giao dịch này?')) return;
+  setSyncStatus('syncing');
+  const { error } = await sb.from('transactions').delete().eq('id', id);
+  if (error) { alert('Lỗi: ' + error.message); setSyncStatus('error'); return; }
+  DB.transactions = DB.transactions.filter(t => t.id !== id);
+  setSyncStatus('ok');
+  renderTransactions();
+}
+
+// ─── CREDIT CARDS ─────────────────────────────────────────
+function renderCredit() {
+  if (DB.cards.length === 0) {
+    document.getElementById('cc-list').innerHTML = '<div class="empty"><i class="ti ti-credit-card-off"></i>Chưa có thẻ nào</div>';
+    return;
+  }
+  document.getElementById('cc-list').innerHTML = DB.cards.map(c => {
+    const pct = Math.min(100, Math.round(c.balance/c.credit_limit*100));
+    const color = pct>70?'var(--red)':pct>40?'var(--amber)':'var(--green)';
+    const due = new Date(c.statement_date+'T00:00:00');
+    const today = new Date(); today.setHours(0,0,0,0);
+    const daysLeft = Math.ceil((due-today)/(1000*60*60*24));
+    const ccTxs = DB.transactions.filter(t=>t.type==='cc'&&t.payment_method&&t.payment_method.toLowerCase().split(' ').some(w=>c.name.toLowerCase().includes(w))).slice(0,5);
+    return `<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+        <div><div style="font-size:15px;font-weight:600"><i class="ti ti-credit-card" style="margin-right:6px;color:var(--text2)"></i>${c.name}</div>
+          <div style="font-size:11px;color:${daysLeft<=3?'var(--red)':daysLeft<=7?'var(--amber)':'var(--text3)'};margin-top:3px">
+            Sao kê: ${c.statement_date} · ${daysLeft>0?'còn '+daysLeft+' ngày':'⚠️ Quá hạn!'}
+          </div>
+        </div>
+        <button class="btn btn-danger" onclick="deleteCard('${c.id}')"><i class="ti ti-trash"></i> Xóa</button>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px">
+        <div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">Dư nợ</div><div style="font-size:22px;font-weight:600;color:${color}">${fmtFull(c.balance)}</div></div>
+        <div style="text-align:right"><div style="font-size:11px;color:var(--text3)">Hạn mức</div><div style="font-size:13px;font-weight:500">${fmtFull(c.credit_limit)}</div></div>
+      </div>
+      <div class="progress" style="height:7px;margin-bottom:8px"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:12px">${pct}% hạn mức đã dùng</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-success" onclick="payCard('${c.id}')"><i class="ti ti-check"></i> Thanh toán sao kê (${fmtFull(c.balance)})</button>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="number" placeholder="Điều chỉnh dư nợ (đ)" id="cc-adj-${c.id}" style="max-width:180px;font-size:12px">
+          <button class="btn btn-outline btn-sm" onclick="adjustCard('${c.id}')"><i class="ti ti-edit"></i> Cập nhật</button>
+        </div>
+      </div>
+      ${ccTxs.length?`<div style="margin-top:14px;border-top:0.5px solid var(--border);padding-top:10px">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Giao dịch gần nhất</div>
+        ${ccTxs.map(t=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:0.5px solid var(--border)"><span style="color:var(--text2)">${t.date} ${t.description}</span><span style="color:var(--red-text)">−${fmt(t.amount)}</span></div>`).join('')}
+      </div>`:''}
+    </div>`;
+  }).join('');
+}
+
+async function addCard() {
+  const name = document.getElementById('cc-name').value.trim();
+  const limit = parseInt(document.getElementById('cc-limit').value);
+  const due = document.getElementById('cc-due').value;
+  if (!name || !limit || !due) { alert('Điền đầy đủ thông tin thẻ'); return; }
+  const btn = document.getElementById('btn-add-card');
+  btn.disabled = true;
+  setSyncStatus('syncing');
+  const { data, error } = await sb.from('credit_cards').insert({ name, credit_limit: limit, balance: 0, statement_date: due }).select().single();
+  if (error) { alert('Lỗi: ' + error.message); setSyncStatus('error'); }
+  else {
+    DB.cards.push(data);
+    document.getElementById('cc-name').value = '';
+    document.getElementById('cc-limit').value = '';
+    document.getElementById('cc-due').value = '';
+    setSyncStatus('ok');
+    renderCredit();
+  }
+  btn.disabled = false;
+}
+
+async function payCard(id) {
+  const card = DB.cards.find(c=>c.id===id);
+  if (!card || card.balance===0) { alert('Dư nợ đang là 0'); return; }
+  if (!confirm(`Thanh toán toàn bộ ${fmtFull(card.balance)} cho ${card.name}?`)) return;
+  setSyncStatus('syncing');
+  const today = new Date().toISOString().split('T')[0];
+  await sb.from('transactions').insert({ date: today, description: 'Thanh toán sao kê ' + card.name, category: 'Khác', type: 'expense', amount: card.balance, payment_method: 'Chuyển khoản' });
+  const { error } = await sb.from('credit_cards').update({ balance: 0, updated_at: new Date().toISOString() }).eq('id', id);
+  if (error) { alert('Lỗi: ' + error.message); setSyncStatus('error'); return; }
+  card.balance = 0;
+  setSyncStatus('ok');
+  renderCredit();
+}
+
+async function adjustCard(id) {
+  const val = parseInt(document.getElementById('cc-adj-'+id).value);
+  if (isNaN(val) || val < 0) { alert('Nhập số tiền hợp lệ'); return; }
+  setSyncStatus('syncing');
+  const { error } = await sb.from('credit_cards').update({ balance: val, updated_at: new Date().toISOString() }).eq('id', id);
+  if (error) { alert('Lỗi: ' + error.message); setSyncStatus('error'); return; }
+  DB.cards = DB.cards.map(c => c.id===id ? {...c, balance:val} : c);
+  setSyncStatus('ok');
+  renderCredit();
+}
+
+async function deleteCard(id) {
+  if (!confirm('Xóa thẻ này?')) return;
+  setSyncStatus('syncing');
+  const { error } = await sb.from('credit_cards').delete().eq('id', id);
+  if (error) { alert('Lỗi: ' + error.message); setSyncStatus('error'); return; }
+  DB.cards = DB.cards.filter(c => c.id !== id);
+  setSyncStatus('ok');
+  renderCredit();
+}
+
+// ─── DEBTS ────────────────────────────────────────────────
+function renderDebts() {
+  const owedToMe = DB.debts.filter(d=>d.direction==='owed-to-me'&&!d.settled);
+  const iOwe = DB.debts.filter(d=>d.direction==='i-owe'&&!d.settled);
+  const settled = DB.debts.filter(d=>d.settled);
+  const totalOwed = owedToMe.reduce((s,d)=>s+d.amount,0);
+  const totalIOwe = iOwe.reduce((s,d)=>s+d.amount,0);
+
+  document.getElementById('debt-summary').innerHTML = `
+    <div class="grid3">
+      <div class="metric"><div class="metric-label">Người nợ tôi</div><div class="metric-val c-green">${fmt(totalOwed)}</div><div class="metric-sub">${owedToMe.length} khoản</div></div>
+      <div class="metric"><div class="metric-label">Tôi nợ người khác</div><div class="metric-val c-red">${fmt(totalIOwe)}</div><div class="metric-sub">${iOwe.length} khoản</div></div>
+      <div class="metric"><div class="metric-label">Ròng</div><div class="metric-val ${totalOwed-totalIOwe>=0?'c-green':'c-red'}">${fmt(totalOwed-totalIOwe)}</div><div class="metric-sub">Thực nhận</div></div>
+    </div>`;
+
+  const renderCard = (d) => `<div class="debt-card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div style="font-size:14px;font-weight:600">${d.person_name}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${d.note||'—'}</div>
+        <div style="font-size:11px;color:var(--text3)">${d.created_at?d.created_at.slice(0,10):''}</div>
+      </div>
+      <div style="font-size:16px;font-weight:600;color:${d.direction==='owed-to-me'?'var(--green)':'var(--red)'}">${fmtFull(d.amount)}</div>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:10px">
+      <button class="btn btn-success" onclick="settleDebt('${d.id}')"><i class="ti ti-check"></i> Đã xong</button>
+      <button class="btn btn-danger" onclick="deleteDebt('${d.id}')"><i class="ti ti-trash"></i></button>
+    </div>
+  </div>`;
+
+  document.getElementById('debts-grid').innerHTML = `
+    <div>
+      <div class="section-title" style="color:var(--green)"><i class="ti ti-arrow-down-right"></i> Người nợ tôi</div>
+      ${owedToMe.length ? owedToMe.map(renderCard).join('') : '<div class="empty" style="padding:16px"><i class="ti ti-mood-smile"></i>Không ai nợ bạn</div>'}
+    </div>
+    <div>
+      <div class="section-title" style="color:var(--red)"><i class="ti ti-arrow-up-right"></i> Tôi nợ người khác</div>
+      ${iOwe.length ? iOwe.map(renderCard).join('') : '<div class="empty" style="padding:16px"><i class="ti ti-mood-smile"></i>Bạn không nợ ai</div>'}
+    </div>`;
+
+  document.getElementById('debts-settled').innerHTML = settled.length ? `
+    <div class="section-title" style="margin-top:20px">Đã tất toán (${settled.length})</div>
+    <div class="card" style="padding:0 20px">
+      ${settled.map(d=>`<div class="row-item">
+        <div class="row-main"><div class="row-name" style="text-decoration:line-through;color:var(--text3)">${d.person_name} — ${d.note||''}</div></div>
+        <span class="tag tag-green">Đã xong</span>
+        <div class="row-amt" style="color:var(--text3)">${fmt(d.amount)}</div>
+        <button class="btn btn-danger" onclick="deleteDebt('${d.id}')"><i class="ti ti-trash"></i></button>
+      </div>`).join('')}
+    </div>` : '';
+}
+
+async function addDebt() {
+  const name = document.getElementById('debt-name').value.trim();
+  const amount = parseInt(document.getElementById('debt-amount').value);
+  const direction = document.getElementById('debt-dir').value;
+  const note = document.getElementById('debt-note').value.trim();
+  if (!name || !amount || isNaN(amount)) { alert('Điền đầy đủ thông tin'); return; }
+  const btn = document.getElementById('btn-add-debt');
+  btn.disabled = true;
+  setSyncStatus('syncing');
+  const { data, error } = await sb.from('debts').insert({ person_name: name, amount, direction, note }).select().single();
+  if (error) { alert('Lỗi: ' + error.message); setSyncStatus('error'); }
+  else {
+    DB.debts.unshift(data);
+    document.getElementById('debt-name').value = '';
+    document.getElementById('debt-amount').value = '';
+    document.getElementById('debt-note').value = '';
+    setSyncStatus('ok');
+    renderDebts();
+  }
+  btn.disabled = false;
+}
+
+async function settleDebt(id) {
+  setSyncStatus('syncing');
+  const { error } = await sb.from('debts').update({ settled: true, settled_at: new Date().toISOString() }).eq('id', id);
+  if (error) { alert('Lỗi: ' + error.message); setSyncStatus('error'); return; }
+  DB.debts = DB.debts.map(d => d.id===id ? {...d, settled:true} : d);
+  setSyncStatus('ok');
+  renderDebts();
+}
+
+async function deleteDebt(id) {
+  if (!confirm('Xóa khoản này?')) return;
+  setSyncStatus('syncing');
+  const { error } = await sb.from('debts').delete().eq('id', id);
+  if (error) { alert('Lỗi: ' + error.message); setSyncStatus('error'); return; }
+  DB.debts = DB.debts.filter(d => d.id !== id);
+  setSyncStatus('ok');
+  renderDebts();
+}
+
+// ─── GOALS ────────────────────────────────────────────────
+function renderGoals() {
+  if (DB.goals.length === 0) {
+    document.getElementById('goals-list').innerHTML = '<div class="empty"><i class="ti ti-target-off"></i>Chưa có mục tiêu nào</div>';
+    return;
+  }
+  document.getElementById('goals-list').innerHTML = DB.goals.map(g => {
+    const pct = Math.min(100, Math.round(g.current_amount/g.target_amount*100));
+    const remaining = Math.max(0, g.target_amount - g.current_amount);
+    let daysInfo = '';
+    if (g.deadline) {
+      const dl = new Date(g.deadline+'T00:00:00');
+      const today = new Date(); today.setHours(0,0,0,0);
+      const days = Math.ceil((dl-today)/(1000*60*60*24));
+      daysInfo = `<div style="font-size:11px;color:${days<30?'var(--red)':'var(--text3)'};margin-top:3px">${days>0?'Còn '+days+' ngày':'Đã quá hạn'}</div>`;
+    }
+    const color = pct>=100?'var(--green)':pct>=50?'var(--blue)':'var(--amber)';
+    return `<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+        <div><div style="font-size:15px;font-weight:600">${g.name}</div>${daysInfo}</div>
+        <div style="text-align:right">
+          <div style="font-size:22px;font-weight:600;color:${color}">${pct}%</div>
+          <div style="font-size:11px;color:var(--text3)">${fmt(g.current_amount)} / ${fmt(g.target_amount)}</div>
+        </div>
+      </div>
+      <div class="progress" style="height:8px;margin-bottom:12px"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <input type="number" placeholder="Cộng thêm (đ)" id="goal-add-${g.id}" style="max-width:160px;font-size:12px">
+        <button class="btn btn-success btn-sm" onclick="addToGoal('${g.id}')"><i class="ti ti-plus"></i> Cộng thêm</button>
+        <button class="btn btn-danger" onclick="deleteGoal('${g.id}')"><i class="ti ti-trash"></i></button>
+        ${remaining>0?`<span style="font-size:12px;color:var(--text3);margin-left:auto">Còn thiếu ${fmt(remaining)}</span>`:`<span class="tag tag-green" style="margin-left:auto"><i class="ti ti-check"></i> Đạt mục tiêu!</span>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function addGoal() {
+  const name = document.getElementById('goal-name').value.trim();
+  const target = parseInt(document.getElementById('goal-target').value);
+  const current = parseInt(document.getElementById('goal-current').value)||0;
+  const deadline = document.getElementById('goal-deadline').value || null;
+  if (!name || !target) { alert('Điền tên và số tiền mục tiêu'); return; }
+  const btn = document.getElementById('btn-add-goal');
+  btn.disabled = true;
+  setSyncStatus('syncing');
+  const { data, error } = await sb.from('goals').insert({ name, target_amount: target, current_amount: current, deadline }).select().single();
+  if (error) { alert('Lỗi: ' + error.message); setSyncStatus('error'); }
+  else {
+    DB.goals.push(data);
+    document.getElementById('goal-name').value = '';
+    document.getElementById('goal-target').value = '';
+    document.getElementById('goal-current').value = '';
+    document.getElementById('goal-deadline').value = '';
+    setSyncStatus('ok');
+    renderGoals();
+  }
+  btn.disabled = false;
+}
+
+async function addToGoal(id) {
+  const v = parseInt(document.getElementById('goal-add-'+id).value);
+  if (!v || isNaN(v) || v<=0) { alert('Nhập số tiền hợp lệ'); return; }
+  const goal = DB.goals.find(g=>g.id===id);
+  if (!goal) return;
+  const newAmt = goal.current_amount + v;
+  setSyncStatus('syncing');
+  const { error } = await sb.from('goals').update({ current_amount: newAmt, updated_at: new Date().toISOString() }).eq('id', id);
+  if (error) { alert('Lỗi: ' + error.message); setSyncStatus('error'); return; }
+  DB.goals = DB.goals.map(g => g.id===id ? {...g, current_amount: newAmt} : g);
+  setSyncStatus('ok');
+  renderGoals();
+}
+
+async function deleteGoal(id) {
+  if (!confirm('Xóa mục tiêu này?')) return;
+  setSyncStatus('syncing');
+  const { error } = await sb.from('goals').delete().eq('id', id);
+  if (error) { alert('Lỗi: ' + error.message); setSyncStatus('error'); return; }
+  DB.goals = DB.goals.filter(g => g.id !== id);
+  setSyncStatus('ok');
+  renderGoals();
+}
+
+// ─── SETTINGS ─────────────────────────────────────────────
+function applySettings() {
+  if (!DB.settings) return;
+  document.getElementById('user-name-display').textContent = DB.settings.name;
+  document.getElementById('set-name').value = DB.settings.name;
+  document.getElementById('set-income').value = DB.settings.monthly_income;
+}
+
+async function saveSettings() {
+  const name = document.getElementById('set-name').value.trim() || 'Người dùng';
+  const income = parseInt(document.getElementById('set-income').value) || 32000000;
+  setSyncStatus('syncing');
+  let error;
+  if (DB.settings?.id) {
+    ({ error } = await sb.from('settings').update({ name, monthly_income: income, updated_at: new Date().toISOString() }).eq('id', DB.settings.id));
+  } else {
+    const res = await sb.from('settings').insert({ name, monthly_income: income }).select().single();
+    DB.settings = res.data;
+    error = res.error;
+  }
+  if (error) { alert('Lỗi: ' + error.message); setSyncStatus('error'); return; }
+  if (DB.settings) { DB.settings.name = name; DB.settings.monthly_income = income; }
+  document.getElementById('user-name-display').textContent = name;
+  setSyncStatus('ok');
+  alert('Đã lưu!');
+}
+
+// ─── EXPORT ───────────────────────────────────────────────
+function exportData() {
+  const blob = new Blob([JSON.stringify(DB, null, 2)], {type:'application/json'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='tai-chinh-backup-'+new Date().toISOString().split('T')[0]+'.json'; a.click();
+}
+
+function exportCSV() {
+  const headers = ['Ngày','Nội dung','Danh mục','Loại','Phương thức','Số tiền'];
+  const rows = DB.transactions.map(t=>[t.date,t.description,t.category,TYPE_LABEL[t.type]||t.type,t.payment_method,t.amount].map(v=>`"${v}"`).join(','));
+  const csv = '\uFEFF' + [headers.join(','),...rows].join('\n');
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='giao-dich-'+new Date().toISOString().split('T')[0]+'.csv'; a.click();
+}
+
+// ─── START ────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
