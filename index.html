@@ -748,7 +748,6 @@ async function delSaving(id){
 }
 
 // ── ĐẦU TƯ ──
-let invFilter='all';
 function setInvFilter(btn,f){invFilter=f;document.querySelectorAll('#inv-tabs .fbt').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderInvestments();}
 
 function renderInvestments(){
