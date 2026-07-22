@@ -117,6 +117,25 @@ input:focus,select:focus{border-color:var(--text2)}
 .inv-table td{padding:8px 8px;border-bottom:0.5px solid var(--border)}
 .inv-table tr:last-child td{border-bottom:none}
 .inv-table td:last-child{white-space:nowrap}
+/* ── CLAUDE CHAT ── */
+.chat-fab{position:fixed;bottom:24px;right:24px;width:52px;height:52px;border-radius:50%;background:var(--text);color:var(--bg);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 4px 16px rgba(0,0,0,0.2);z-index:200;transition:transform .15s}
+.chat-fab:hover{transform:scale(1.08)}
+.chat-panel{position:fixed;bottom:88px;right:24px;width:360px;max-height:520px;background:var(--bg);border:0.5px solid var(--border2);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.15);z-index:200;display:flex;flex-direction:column;overflow:hidden;transition:all .2s}
+.chat-panel.hidden{display:none}
+.chat-header{padding:14px 16px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.chat-header-title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px}
+.chat-msgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;min-height:200px}
+.msg{max-width:85%;padding:8px 12px;border-radius:12px;font-size:12px;line-height:1.5}
+.msg.user{background:var(--text);color:var(--bg);align-self:flex-end;border-bottom-right-radius:4px}
+.msg.ai{background:var(--bg2);color:var(--text);align-self:flex-start;border-bottom-left-radius:4px}
+.msg.ai.thinking{opacity:.6;font-style:italic}
+.chat-input-row{padding:10px 12px;border-top:0.5px solid var(--border);display:flex;gap:8px;flex-shrink:0}
+.chat-input-row input{font-size:13px;border-radius:20px;padding:7px 14px}
+.chat-send{background:var(--text);color:var(--bg);border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px}
+.chat-examples{padding:0 12px 10px;display:flex;flex-wrap:wrap;gap:5px}
+.chat-ex{font-size:11px;padding:3px 9px;border-radius:12px;background:var(--bg2);border:0.5px solid var(--border);cursor:pointer;color:var(--text2)}
+.chat-ex:hover{background:var(--bg3)}
+
 </style>
 </head>
 <body>
@@ -342,6 +361,34 @@ input:focus,select:focus{border-color:var(--text2)}
     <button class="btn bp" id="btn-add-cc" onclick="addCard()"><i class="ti ti-plus"></i> Thêm thẻ</button>
   </div>
   <div id="cc-list"></div>
+
+  <!-- KHOẢN NỢ THẺ -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px">
+    <div style="font-size:15px;font-weight:600">Khoản nợ theo từng mục</div>
+    <button class="btn bp bsm" onclick="toggleAddItem()"><i class="ti ti-plus"></i> Thêm khoản nợ</button>
+  </div>
+  <div class="card" id="add-item-form" style="display:none;margin-bottom:14px">
+    <div class="ctitle">Thêm khoản nợ thẻ tín dụng</div>
+    <div class="fr">
+      <div class="fc" style="flex:2"><label class="fl">Tên khoản nợ</label><input type="text" id="cci-name" placeholder="Gym, iPhone, Du lịch..."></div>
+      <div class="fc"><label class="fl">Thẻ</label><select id="cci-card"></select></div>
+      <div class="fc"><label class="fl">Tổng số tiền (đ)</label><input type="number" id="cci-amount" placeholder="0"></div>
+    </div>
+    <div class="fr">
+      <div class="fc"><label class="fl">Loại</label>
+        <select id="cci-type">
+          <option value="normal">Thông thường</option>
+          <option value="installment">Trả góp</option>
+        </select>
+      </div>
+      <div class="fc" id="cci-months-wrap" style="display:none"><label class="fl">Số tháng góp</label><input type="number" id="cci-months" placeholder="12" min="2" max="60"></div>
+      <div class="fc" id="cci-paid-wrap" style="display:none"><label class="fl">Đã trả (số tháng)</label><input type="number" id="cci-paid" placeholder="0" min="0"></div>
+      <div class="fc"><label class="fl">Ngày phát sinh</label><input type="date" id="cci-date"></div>
+      <div class="fc" style="flex:2"><label class="fl">Ghi chú</label><input type="text" id="cci-note" placeholder="Ghi chú..."></div>
+    </div>
+    <button class="btn bp" id="btn-add-cci" onclick="addCCItem()"><i class="ti ti-plus"></i> Thêm khoản nợ</button>
+  </div>
+  <div id="cc-items-list"></div>
 </div>
 
 <!-- CÔNG NỢ -->
@@ -396,6 +443,29 @@ input:focus,select:focus{border-color:var(--text2)}
   </div>
 </div>
 
+<!-- CLAUDE CHAT FAB -->
+<button class="chat-fab" onclick="toggleChat()" title="Chat với Claude để nhập liệu"><i class="ti ti-message-chatbot"></i></button>
+<div class="chat-panel hidden" id="chat-panel">
+  <div class="chat-header">
+    <div class="chat-header-title"><i class="ti ti-message-chatbot" style="color:var(--text2)"></i> Nhập liệu với Claude</div>
+    <button onclick="toggleChat()" style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--text2)"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="chat-msgs" id="chat-msgs">
+    <div class="msg ai">Xin chào! Mình có thể giúp bạn nhập liệu nhanh. Thử nói:<br><br>• "ăn trưa 85k tiền mặt"<br>• "FPT giá hiện tại 125000"<br>• "bạn Nam trả lại 200k"<br>• "thêm tiết kiệm VCB 50tr lãi 5.5%"<br>• "cập nhật VCB số dư 15tr"</div>
+  </div>
+  <div class="chat-examples" id="chat-examples">
+    <span class="chat-ex" onclick="fillChat('ăn trưa 85k tiền mặt')">ăn trưa 85k</span>
+    <span class="chat-ex" onclick="fillChat('xăng xe 200k')">xăng xe 200k</span>
+    <span class="chat-ex" onclick="fillChat('FPT giá hiện tại 125000')">cập nhật giá CP</span>
+    <span class="chat-ex" onclick="fillChat('bạn Nam trả lại 300k')">bạn trả nợ</span>
+    <span class="chat-ex" onclick="fillChat('lương tháng này 32 triệu')">nhập lương</span>
+  </div>
+  <div class="chat-input-row">
+    <input type="text" id="chat-input" placeholder="Nhập liệu bằng ngôn ngữ tự nhiên..." onkeydown="if(event.key==='Enter')sendChat()">
+    <button class="chat-send" onclick="sendChat()"><i class="ti ti-send"></i></button>
+  </div>
+</div>
+
 </main>
 </div>
 
@@ -404,7 +474,7 @@ const SB_URL='https://ycxpndwxtjyqvojudcrr.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InljeHBuZHd4dGp5cXZvanVkY3JyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MDgyNjAsImV4cCI6MjA5NzA4NDI2MH0.WPDA8rkk2eAXUQOrs5P8KLUQrGcn8a7RLr3n6br4NuM';
 const sb=supabase.createClient(SB_URL,SB_KEY);
 
-let DB={settings:null,transactions:[],cards:[],debts:[],goals:[],accounts:[],savings:[],investments:[],cash:[]};
+let DB={settings:null,transactions:[],cards:[],ccItems:[],debts:[],goals:[],accounts:[],savings:[],investments:[],cash:[]};
 let txFilter='all',invFilter='all';
 let chartNW=null,chartCat=null,chartFlow=null;
 
@@ -428,10 +498,11 @@ function SS(state){
 
 async function init(){
   try{
-    const [s,t,c,d,g,a,sv,inv,ca]=await Promise.all([
+    const [s,t,c,cci,d,g,a,sv,inv,ca]=await Promise.all([
       sb.from('settings').select('*').limit(1).single(),
       sb.from('transactions').select('*').order('date',{ascending:false}).order('created_at',{ascending:false}),
       sb.from('credit_cards').select('*').order('created_at'),
+      sb.from('cc_items').select('*').order('created_at',{ascending:false}),
       sb.from('debts').select('*').order('created_at',{ascending:false}),
       sb.from('goals').select('*').order('created_at'),
       sb.from('bank_accounts').select('*').order('created_at'),
@@ -440,7 +511,7 @@ async function init(){
       sb.from('cash_items').select('*').order('created_at'),
     ]);
     if(s.data)DB.settings=s.data;
-    DB.transactions=t.data||[];DB.cards=c.data||[];DB.debts=d.data||[];
+    DB.transactions=t.data||[];DB.cards=c.data||[];DB.ccItems=cci.data||[];DB.debts=d.data||[];
     DB.goals=g.data||[];DB.accounts=a.data||[];DB.savings=sv.data||[];
     DB.investments=inv.data||[];DB.cash=ca.data||[];
     applySettings();
@@ -465,6 +536,7 @@ function subscribeRT(){
   sb.channel('all-changes')
     .on('postgres_changes',{event:'*',schema:'public',table:'transactions'},p=>handleRT('transactions',p))
     .on('postgres_changes',{event:'*',schema:'public',table:'credit_cards'},p=>handleRT('cards',p))
+    .on('postgres_changes',{event:'*',schema:'public',table:'cc_items'},p=>handleRT('ccItems',p))
     .on('postgres_changes',{event:'*',schema:'public',table:'debts'},p=>handleRT('debts',p))
     .on('postgres_changes',{event:'*',schema:'public',table:'goals'},p=>handleRT('goals',p))
     .on('postgres_changes',{event:'*',schema:'public',table:'bank_accounts'},p=>handleRT('accounts',p))
@@ -867,36 +939,105 @@ async function delTx(id){
 
 // ── THẺ TÍN DỤNG ──
 function renderCredit(){
-  if(DB.cards.length===0){document.getElementById('cc-list').innerHTML='<div class="empty"><i class="ti ti-credit-card-off"></i>Chưa có thẻ nào</div>';return;}
+  // Populate card selector for new item form
+  const sel=document.getElementById('cci-card');
+  if(sel){sel.innerHTML=DB.cards.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');}
+  // Set today as default date
+  const dInp=document.getElementById('cci-date');
+  if(dInp&&!dInp.value)dInp.value=new Date().toISOString().split('T')[0];
+  // Installment toggle
+  const typeInp=document.getElementById('cci-type');
+  if(typeInp&&!typeInp._bound){typeInp._bound=true;typeInp.addEventListener('change',()=>{const isInst=typeInp.value==='installment';document.getElementById('cci-months-wrap').style.display=isInst?'flex':'none';document.getElementById('cci-paid-wrap').style.display=isInst?'flex':'none';});}
+
+  if(DB.cards.length===0){document.getElementById('cc-list').innerHTML='<div class="empty"><i class="ti ti-credit-card-off"></i>Chưa có thẻ nào</div>';renderCCItems();return;}
   document.getElementById('cc-list').innerHTML=DB.cards.map(c=>{
+    const items=DB.ccItems.filter(i=>i.card_id===c.id&&!i.settled);
+    const itemsTotal=items.reduce((s,i)=>s+i.remaining_amount,0);
     const pct=Math.min(100,Math.round(c.balance/c.credit_limit*100));
     const avail=c.credit_limit-c.balance;
     const color=pct>70?'var(--red)':pct>40?'var(--amber)':'var(--green)';
     const due=new Date(c.statement_date+'T00:00:00');const today=new Date();today.setHours(0,0,0,0);
     const dl=Math.ceil((due-today)/864e5);
-    const ccTxs=DB.transactions.filter(t=>t.type==='cc'&&t.payment_method&&t.payment_method.toLowerCase().split(' ').some(w=>c.name.toLowerCase().includes(w))).slice(0,5);
     return`<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
       <div><div style="font-size:15px;font-weight:600"><i class="ti ti-credit-card" style="margin-right:6px;color:var(--text2)"></i>${c.name}</div>
         <div style="font-size:11px;color:${dl<=3?'var(--red)':dl<=7?'var(--amber)':'var(--text3)'};margin-top:3px">Sao kê: ${c.statement_date} · ${dl>0?'còn '+dl+' ngày':'⚠️ Quá hạn!'}</div>
       </div>
       <button class="bd" onclick="delCard('${c.id}')"><i class="ti ti-trash"></i></button>
     </div>
-    <div class="g3" style="margin-bottom:10px">
-      <div><div style="font-size:11px;color:var(--text2)">Dư nợ</div><div style="font-size:20px;font-weight:600;color:${color}">${fmtF(c.balance)}</div></div>
-      <div><div style="font-size:11px;color:var(--text2)">Hạn mức còn lại</div><div style="font-size:20px;font-weight:600;color:var(--green)">${fmtF(avail)}</div></div>
-      <div><div style="font-size:11px;color:var(--text2)">Hạn mức tổng</div><div style="font-size:16px;font-weight:500">${fmtF(c.credit_limit)}</div></div>
+    <div class="g4" style="margin-bottom:10px">
+      <div><div style="font-size:11px;color:var(--text2)">Dư nợ tổng</div><div style="font-size:18px;font-weight:600;color:${color}">${fmtF(c.balance)}</div></div>
+      <div><div style="font-size:11px;color:var(--text2)">Theo khoản mục</div><div style="font-size:18px;font-weight:600;color:var(--amber)">${fmtF(itemsTotal)}</div></div>
+      <div><div style="font-size:11px;color:var(--text2)">Hạn mức còn lại</div><div style="font-size:18px;font-weight:600;color:var(--green)">${fmtF(avail)}</div></div>
+      <div><div style="font-size:11px;color:var(--text2)">Hạn mức tổng</div><div style="font-size:14px;font-weight:500">${fmtF(c.credit_limit)}</div></div>
     </div>
     <div class="prog" style="height:7px;margin-bottom:8px"><div class="pf" style="width:${pct}%;background:${color}"></div></div>
     <div style="font-size:11px;color:var(--text3);margin-bottom:12px">${pct}% hạn mức đã dùng</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <button class="bs" onclick="payCard('${c.id}')"><i class="ti ti-check"></i> Thanh toán sao kê (${fmtF(c.balance)})</button>
-      <input type="number" placeholder="Điều chỉnh dư nợ (đ)" id="cc-adj-${c.id}" style="max-width:180px;font-size:12px">
-      <button class="btn bo bsm" onclick="adjustCard('${c.id}')"><i class="ti ti-edit"></i> Cập nhật</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+      <button class="bs" onclick="payCard('${c.id}',false)"><i class="ti ti-check"></i> Trả đủ sao kê</button>
+      <input type="number" placeholder="Trả 1 phần (đ)" id="cc-pay-${c.id}" style="max-width:155px;font-size:12px">
+      <button class="btn bo bsm" onclick="payCard('${c.id}',true)"><i class="ti ti-credit-card-pay"></i> Trả 1 phần</button>
     </div>
-    ${ccTxs.length?`<div style="margin-top:12px;border-top:0.5px solid var(--border);padding-top:10px"><div style="font-size:11px;color:var(--text3);margin-bottom:6px">Giao dịch gần nhất</div>${ccTxs.map(t=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:0.5px solid var(--border)"><span style="color:var(--text2)">${t.date} ${t.description}</span><span class="cr">−${fmt(t.amount)}</span></div>`).join('')}</div>`:''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input type="number" placeholder="Điều chỉnh dư nợ thủ công (đ)" id="cc-adj-${c.id}" style="max-width:210px;font-size:12px">
+      <button class="btn bo bsm" onclick="adjustCard('${c.id}')"><i class="ti ti-edit"></i> Cập nhật thủ công</button>
+    </div>
     </div>`;
   }).join('');
+  renderCCItems();
 }
+
+function renderCCItems(){
+  const el=document.getElementById('cc-items-list');if(!el)return;
+  const active=DB.ccItems.filter(i=>!i.settled);
+  const settled=DB.ccItems.filter(i=>i.settled);
+  if(active.length===0&&settled.length===0){el.innerHTML='<div class="empty"><i class="ti ti-credit-card"></i>Chưa có khoản nợ nào. Thêm để theo dõi từng mục chi tiêu trên thẻ.</div>';return;}
+
+  const totalRemaining=active.reduce((s,i)=>s+i.remaining_amount,0);
+  const totalMonthly=active.filter(i=>i.type==='installment').reduce((s,i)=>s+(i.total_amount/i.installment_months),0);
+
+  el.innerHTML=`
+  <div class="g3" style="margin-bottom:14px">
+    <div class="metric"><div class="ml">Tổng còn nợ</div><div class="mv cr">${fmt(totalRemaining)}</div><div class="ms">${active.length} khoản</div></div>
+    <div class="metric"><div class="ml">Trả góp/tháng</div><div class="mv ca">${fmt(totalMonthly)}</div><div class="ms">Tổng các khoản góp</div></div>
+    <div class="metric"><div class="ml">Đã tất toán</div><div class="mv" style="color:var(--text2)">${settled.length} khoản</div></div>
+  </div>
+  ${active.map(i=>{
+    const card=DB.cards.find(c=>c.id===i.card_id);
+    const isInst=i.type==='installment';
+    const monthlyAmt=isInst?Math.round(i.total_amount/i.installment_months):0;
+    const paidMonths=i.paid_months||0;
+    const pct=isInst?Math.round(paidMonths/i.installment_months*100):Math.round((i.total_amount-i.remaining_amount)/i.total_amount*100);
+    return`<div class="card" style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="font-size:14px;font-weight:600">${i.name}</div>
+            <span class="tag ${isInst?'ta':'tgr'}">${isInst?'Trả góp':'Thông thường'}</span>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px">${card?card.name:'—'} · ${i.created_at?i.created_at.slice(0,10):''}</div>
+          ${i.note?`<div style="font-size:11px;color:var(--text3)">${i.note}</div>`:''}
+        </div>
+        <button class="bd" onclick="delCCItem('${i.id}')"><i class="ti ti-trash"></i></button>
+      </div>
+      <div class="g3" style="margin-bottom:10px">
+        <div><div style="font-size:11px;color:var(--text2)">Còn nợ</div><div style="font-size:16px;font-weight:600;color:var(--red)">${fmtF(i.remaining_amount)}</div></div>
+        <div><div style="font-size:11px;color:var(--text2)">Tổng khoản</div><div style="font-size:14px;font-weight:500">${fmtF(i.total_amount)}</div></div>
+        ${isInst?`<div><div style="font-size:11px;color:var(--text2)">Mỗi tháng</div><div style="font-size:16px;font-weight:600;color:var(--amber)">${fmtF(monthlyAmt)}</div></div>`:'<div></div>'}
+      </div>
+      ${isInst?`<div style="font-size:11px;color:var(--text2);margin-bottom:4px">Tiến độ: ${paidMonths}/${i.installment_months} tháng</div>
+      <div class="prog" style="margin-bottom:10px"><div class="pf" style="width:${pct}%;background:var(--green)"></div></div>`:''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        ${isInst?`<button class="bs bsm" onclick="payInstallment('${i.id}')"><i class="ti ti-coin"></i> Trả tháng này (${fmtF(monthlyAmt)})</button>`:''}
+        <input type="number" placeholder="Trả số tiền khác (đ)" id="cci-pay-${i.id}" style="max-width:155px;font-size:12px">
+        <button class="btn bo bsm" onclick="payCCItem('${i.id}')"><i class="ti ti-check"></i> Trả</button>
+        <button class="bs bsm" onclick="settleCCItem('${i.id}')"><i class="ti ti-check"></i> Tất toán</button>
+      </div>
+    </div>`;
+  }).join('')}
+  ${settled.length?`<div style="font-size:13px;font-weight:500;color:var(--text2);margin:16px 0 8px">Đã tất toán (${settled.length})</div>
+  <div class="card" style="padding:0 20px">${settled.map(i=>`<div class="ri"><div class="rm"><div class="rn" style="text-decoration:line-through;color:var(--text3)">${i.name} — ${i.note||''}</div></div><span class="tag tg">Xong</span><div class="ra" style="color:var(--text3)">${fmt(i.total_amount)}</div><button class="bd" onclick="delCCItem('${i.id}')"><i class="ti ti-trash"></i></button></div>`).join('')}</div>`:''}`;
+}
+
 async function addCard(){
   const name=document.getElementById('cc-name').value.trim();
   const limit=parseInt(document.getElementById('cc-limit').value);
@@ -907,14 +1048,99 @@ async function addCard(){
   if(error){alert('Lỗi: '+error.message);SS('e');}else{DB.cards.push(data);['cc-name','cc-limit','cc-due'].forEach(id=>document.getElementById(id).value='');SS('ok');renderCredit();}
   btn.disabled=false;
 }
-async function payCard(id){
-  const card=DB.cards.find(c=>c.id===id);if(!card||card.balance===0)return alert('Dư nợ đang là 0');
-  if(!confirm(`Thanh toán toàn bộ ${fmtF(card.balance)} cho ${card.name}?`))return;
-  SS('s');const today=new Date().toISOString().split('T')[0];
-  await sb.from('transactions').insert({date:today,description:'Thanh toán sao kê '+card.name,category:'Khác',type:'expense',amount:card.balance,payment_method:'Chuyển khoản'});
-  const{error}=await sb.from('credit_cards').update({balance:0,updated_at:new Date().toISOString()}).eq('id',id);
+
+function toggleAddItem(){const f=document.getElementById('add-item-form');f.style.display=f.style.display==='none'?'block':'none';}
+
+async function addCCItem(){
+  const name=document.getElementById('cci-name').value.trim();
+  const cardId=document.getElementById('cci-card').value;
+  const amount=parseInt(document.getElementById('cci-amount').value);
+  const type=document.getElementById('cci-type').value;
+  const months=type==='installment'?parseInt(document.getElementById('cci-months').value)||0:0;
+  const paid=type==='installment'?parseInt(document.getElementById('cci-paid').value)||0:0;
+  const date=document.getElementById('cci-date').value||new Date().toISOString().split('T')[0];
+  const note=document.getElementById('cci-note').value.trim();
+  if(!name||!cardId||isNaN(amount)||amount<=0)return alert('Điền đầy đủ thông tin');
+  if(type==='installment'&&(!months||months<2))return alert('Nhập số tháng góp (tối thiểu 2)');
+  const monthlyAmt=type==='installment'?Math.round(amount/months):0;
+  const paidAmt=type==='installment'?monthlyAmt*paid:0;
+  const remaining=amount-paidAmt;
+  const btn=document.getElementById('btn-add-cci');btn.disabled=true;SS('s');
+  const{data,error}=await sb.from('cc_items').insert({
+    card_id:cardId,name,total_amount:amount,remaining_amount:remaining,
+    type,installment_months:months||null,paid_months:paid,
+    start_date:date,note,settled:false
+  }).select().single();
+  if(error){alert('Lỗi: '+error.message);SS('e');}
+  else{
+    DB.ccItems.push(data);
+    ['cci-name','cci-amount','cci-months','cci-paid','cci-note'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('cci-type').value='normal';
+    document.getElementById('cci-months-wrap').style.display='none';
+    document.getElementById('cci-paid-wrap').style.display='none';
+    document.getElementById('add-item-form').style.display='none';
+    SS('ok');renderCredit();
+  }
+  btn.disabled=false;
+}
+
+async function payInstallment(id){
+  const item=DB.ccItems.find(i=>i.id===id);if(!item)return;
+  const monthly=Math.round(item.total_amount/item.installment_months);
+  const newPaid=Math.min((item.paid_months||0)+1,item.installment_months);
+  const newRemaining=Math.max(0,item.remaining_amount-monthly);
+  const settled=newRemaining===0||newPaid>=item.installment_months;
+  SS('s');
+  const{error}=await sb.from('cc_items').update({paid_months:newPaid,remaining_amount:newRemaining,settled,settled_at:settled?new Date().toISOString():null,updated_at:new Date().toISOString()}).eq('id',id);
   if(error){alert('Lỗi: '+error.message);SS('e');return;}
-  card.balance=0;SS('ok');renderCredit();
+  DB.ccItems=DB.ccItems.map(i=>i.id===id?{...i,paid_months:newPaid,remaining_amount:newRemaining,settled}:i);
+  SS('ok');renderCCItems();
+}
+
+async function payCCItem(id){
+  const item=DB.ccItems.find(i=>i.id===id);if(!item)return;
+  const v=parseInt(document.getElementById('cci-pay-'+id).value);
+  if(isNaN(v)||v<=0)return alert('Nhập số tiền');
+  if(v>item.remaining_amount)return alert('Vượt quá số tiền còn nợ');
+  const newRemaining=item.remaining_amount-v;
+  const settled=newRemaining===0;
+  SS('s');
+  const{error}=await sb.from('cc_items').update({remaining_amount:newRemaining,settled,settled_at:settled?new Date().toISOString():null,updated_at:new Date().toISOString()}).eq('id',id);
+  if(error){alert('Lỗi: '+error.message);SS('e');return;}
+  DB.ccItems=DB.ccItems.map(i=>i.id===id?{...i,remaining_amount:newRemaining,settled}:i);
+  SS('ok');renderCCItems();
+}
+
+async function settleCCItem(id){
+  if(!confirm('Tất toán khoản này?'))return;
+  SS('s');const{error}=await sb.from('cc_items').update({remaining_amount:0,settled:true,settled_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',id);
+  if(error){alert('Lỗi: '+error.message);SS('e');return;}
+  DB.ccItems=DB.ccItems.map(i=>i.id===id?{...i,remaining_amount:0,settled:true}:i);
+  SS('ok');renderCCItems();
+}
+
+async function delCCItem(id){
+  if(!confirm('Xóa khoản nợ này?'))return;SS('s');
+  const{error}=await sb.from('cc_items').delete().eq('id',id);
+  if(error){alert('Lỗi: '+error.message);SS('e');return;}
+  DB.ccItems=DB.ccItems.filter(i=>i.id!==id);SS('ok');renderCCItems();
+}
+async function payCard(id,partial){
+  const card=DB.cards.find(c=>c.id===id);if(!card||card.balance===0)return alert('Dư nợ đang là 0');
+  let amount=card.balance;
+  if(partial){
+    const v=parseInt(document.getElementById('cc-pay-'+id).value);
+    if(isNaN(v)||v<=0)return alert('Nhập số tiền cần trả');
+    if(v>card.balance)return alert('Số tiền trả vượt quá dư nợ ('+fmtF(card.balance)+')');
+    amount=v;
+  }
+  if(!confirm('Thanh toán '+fmtF(amount)+' cho '+card.name+'?'))return;
+  SS('s');const today=new Date().toISOString().split('T')[0];
+  await sb.from('transactions').insert({date:today,description:(partial?'Trả 1 phần ':'Thanh toán đủ sao kê ')+card.name,category:'Khác',type:'expense',amount,payment_method:'Chuyển khoản'});
+  const newBal=card.balance-amount;
+  const{error}=await sb.from('credit_cards').update({balance:newBal,updated_at:new Date().toISOString()}).eq('id',id);
+  if(error){alert('Lỗi: '+error.message);SS('e');return;}
+  card.balance=newBal;SS('ok');renderCredit();
 }
 async function adjustCard(id){
   const v=parseInt(document.getElementById('cc-adj-'+id).value);
@@ -937,7 +1163,7 @@ function renderDebts(){
   const sl=DB.debts.filter(d=>d.settled);
   const tot=om.reduce((s,d)=>s+d.amount,0),tio=io.reduce((s,d)=>s+d.amount,0);
   document.getElementById('debt-summary').innerHTML=`<div class="g3"><div class="metric"><div class="ml">Người nợ tôi</div><div class="mv cg">${fmt(tot)}</div><div class="ms">${om.length} khoản</div></div><div class="metric"><div class="ml">Tôi nợ người khác</div><div class="mv cr">${fmt(tio)}</div><div class="ms">${io.length} khoản</div></div><div class="metric"><div class="ml">Ròng</div><div class="mv ${tot-tio>=0?'cg':'cr'}">${fmt(tot-tio)}</div></div></div>`;
-  const rc=d=>`<div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-size:14px;font-weight:600">${d.person_name}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${d.note||'—'} · ${d.created_at?d.created_at.slice(0,10):''}</div></div><div style="font-size:16px;font-weight:600;color:${d.direction==='owed-to-me'?'var(--green)':'var(--red)'}">${fmtF(d.amount)}</div></div><div style="display:flex;gap:6px;margin-top:10px"><button class="bs" onclick="settleDebt('${d.id}')"><i class="ti ti-check"></i> Đã xong</button><button class="bd" onclick="delDebt('${d.id}')"><i class="ti ti-trash"></i></button></div></div>`;
+  const rc=d=>`<div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-size:14px;font-weight:600">${d.person_name}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${d.note||'—'} · ${d.created_at?d.created_at.slice(0,10):''}</div></div><div style="font-size:16px;font-weight:600;color:${d.direction==='owed-to-me'?'var(--green)':'var(--red)'}">${fmtF(d.amount)}</div></div><div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center"><button class="bs" onclick="settleDebt('${d.id}',false)"><i class="ti ti-check"></i> Tất toán</button><input type="number" placeholder="Trả 1 phần (đ)" id="debt-pay-${d.id}" style="max-width:140px;font-size:12px"><button class="btn bo bsm" onclick="settleDebt('${d.id}',true)"><i class="ti ti-coin"></i> Trả 1 phần</button><button class="bd" onclick="delDebt('${d.id}')"><i class="ti ti-trash"></i></button></div></div>`;
   document.getElementById('debts-grid').innerHTML=`<div><div style="font-size:13px;font-weight:500;color:var(--green);margin:16px 0 8px"><i class="ti ti-arrow-down-right"></i> Người nợ tôi</div>${om.length?om.map(rc).join(''):'<div class="empty" style="padding:12px">Không ai nợ bạn</div>'}</div><div><div style="font-size:13px;font-weight:500;color:var(--red);margin:16px 0 8px"><i class="ti ti-arrow-up-right"></i> Tôi nợ người khác</div>${io.length?io.map(rc).join(''):'<div class="empty" style="padding:12px">Bạn không nợ ai</div>'}</div>`;
   document.getElementById('debts-settled').innerHTML=sl.length?`<div style="font-size:13px;font-weight:500;color:var(--text2);margin:16px 0 8px">Đã tất toán (${sl.length})</div><div class="card" style="padding:0 20px">${sl.map(d=>`<div class="ri"><div class="rm"><div class="rn" style="text-decoration:line-through;color:var(--text3)">${d.person_name} — ${d.note||''}</div></div><span class="tag tg">Đã xong</span><div class="ra" style="color:var(--text3)">${fmt(d.amount)}</div><button class="bd" onclick="delDebt('${d.id}')"><i class="ti ti-trash"></i></button></div>`).join('')}</div>`:'';
 }
@@ -952,7 +1178,24 @@ async function addDebt(){
   if(error){alert('Lỗi: '+error.message);SS('e');}else{DB.debts.unshift(data);['debt-name','debt-amount','debt-note'].forEach(id=>document.getElementById(id).value='');SS('ok');renderDebts();}
   btn.disabled=false;
 }
-async function settleDebt(id){SS('s');const{error}=await sb.from('debts').update({settled:true,settled_at:new Date().toISOString()}).eq('id',id);if(error){alert('Lỗi: '+error.message);SS('e');return;}DB.debts=DB.debts.map(d=>d.id===id?{...d,settled:true}:d);SS('ok');renderDebts();}
+async function settleDebt(id,partial){
+  const debt=DB.debts.find(d=>d.id===id);if(!debt)return;
+  if(partial){
+    const v=parseInt(document.getElementById('debt-pay-'+id).value);
+    if(isNaN(v)||v<=0)return alert('Nhập số tiền thanh toán');
+    if(v>=debt.amount){return settleDebt(id,false);}
+    if(!confirm('Trả '+fmtF(v)+' / '+fmtF(debt.amount)+'?'))return;
+    SS('s');
+    const newAmt=debt.amount-v;
+    const{error}=await sb.from('debts').update({amount:newAmt,updated_at:new Date().toISOString()}).eq('id',id);
+    if(error){alert('Lỗi: '+error.message);SS('e');return;}
+    DB.debts=DB.debts.map(d=>d.id===id?{...d,amount:newAmt}:d);SS('ok');renderDebts();return;
+  }
+  if(!confirm('Tất toán toàn bộ '+fmtF(debt.amount)+'?'))return;
+  SS('s');const{error}=await sb.from('debts').update({settled:true,settled_at:new Date().toISOString()}).eq('id',id);
+  if(error){alert('Lỗi: '+error.message);SS('e');return;}
+  DB.debts=DB.debts.map(d=>d.id===id?{...d,settled:true}:d);SS('ok');renderDebts();
+}
 async function delDebt(id){if(!confirm('Xóa?'))return;SS('s');const{error}=await sb.from('debts').delete().eq('id',id);if(error){alert('Lỗi: '+error.message);SS('e');return;}DB.debts=DB.debts.filter(d=>d.id!==id);SS('ok');renderDebts();}
 
 // ── MỤC TIÊU ──
@@ -1005,6 +1248,153 @@ async function saveSettings(){
 // ── EXPORT ──
 function exportData(){const b=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='tai-chinh-backup-'+new Date().toISOString().split('T')[0]+'.json';a.click();}
 function exportCSV(){const h=['Ngày','Nội dung','Danh mục','Loại','Phương thức','Số tiền'];const r=DB.transactions.map(t=>[t.date,t.description,t.category,TL[t.type]||t.type,t.payment_method,t.amount].map(v=>`"${v}"`).join(','));const csv='\uFEFF'+[h.join(','),...r].join('\n');const b=new Blob([csv],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='giao-dich-'+new Date().toISOString().split('T')[0]+'.csv';a.click();}
+
+// ── CLAUDE CHAT ──
+let chatOpen=false;
+const CLAUDE_SYSTEM=`Bạn là trợ lý nhập liệu tài chính cá nhân. Người dùng sẽ mô tả giao dịch, cập nhật số liệu bằng tiếng Việt tự nhiên. Nhiệm vụ của bạn là phân tích và trả về JSON hành động để thực thi.
+
+Các loại action:
+1. add_transaction: thêm giao dịch
+2. update_investment_price: cập nhật giá cổ phiếu/quỹ
+3. update_account_balance: cập nhật số dư tài khoản ngân hàng
+4. update_cash: cập nhật tiền mặt
+5. add_debt: thêm công nợ
+6. settle_debt: thanh toán nợ (tìm theo tên)
+7. add_goal_amount: cộng thêm vào mục tiêu
+8. unknown: không hiểu
+
+Trả về JSON duy nhất, không có markdown, không có giải thích:
+{
+  "action": "add_transaction",
+  "data": { "description": "Ăn trưa", "category": "Ăn uống", "type": "expense", "amount": 85000, "payment_method": "Tiền mặt", "date": "TODAY" },
+  "message": "Đã ghi: Ăn trưa 85,000đ tiền mặt"
+}
+
+Quy tắc:
+- "k" hoặc "nghìn" = x1000, "tr" hoặc "triệu" = x1000000
+- Mặc định type=expense nếu không rõ
+- Thu nhập/lương → type=income, category=Thu nhập
+- Tiết kiệm → type=saving
+- Thẻ TD/thẻ tín dụng → type=cc
+- Chi hộ → type=on-behalf
+- Date mặc định TODAY (sẽ được thay bằng ngày hôm nay)
+- payment_method mặc định "Tiền mặt"
+- Khi update giá CP: { "action": "update_investment_price", "data": { "name": "FPT", "price": 125000 }, "message": "..." }
+- Khi update số dư TK: { "action": "update_account_balance", "data": { "name": "VCB", "balance": 15000000 }, "message": "..." }
+- Khi cộng tiền vào mục tiêu: { "action": "add_goal_amount", "data": { "name": "Quỹ khẩn cấp", "amount": 1000000 }, "message": "..." }`;
+
+function toggleChat(){chatOpen=!chatOpen;document.getElementById('chat-panel').classList.toggle('hidden',!chatOpen);if(chatOpen)document.getElementById('chat-input').focus();}
+function fillChat(txt){document.getElementById('chat-input').value=txt;document.getElementById('chat-input').focus();}
+
+function addMsg(text,role,cls=''){
+  const msgs=document.getElementById('chat-msgs');
+  const div=document.createElement('div');
+  div.className='msg '+role+(cls?' '+cls:'');
+  div.innerHTML=text.replace(/\n/g,'<br>');
+  msgs.appendChild(div);
+  msgs.scrollTop=msgs.scrollHeight;
+  return div;
+}
+
+async function sendChat(){
+  const inp=document.getElementById('chat-input');
+  const text=inp.value.trim();if(!text)return;
+  inp.value='';
+  addMsg(text,'user');
+  const thinking=addMsg('Đang xử lý...','ai','thinking');
+  try{
+    const today=new Date().toISOString().split('T')[0];
+    const context=`Dữ liệu hiện tại:
+- Tài khoản: ${DB.accounts.map(a=>a.name+'('+fmt(a.balance)+')').join(', ')||'chưa có'}
+- Đầu tư: ${DB.investments.map(i=>i.name+'(giá:'+fmt(i.current_price)+')').join(', ')||'chưa có'}
+- Mục tiêu: ${DB.goals.map(g=>g.name+'('+fmt(g.current_amount)+'/'+fmt(g.target_amount)+')').join(', ')||'chưa có'}
+- Công nợ chưa tất toán: ${DB.debts.filter(d=>!d.settled).map(d=>d.person_name+'('+fmtF(d.amount)+')').join(', ')||'không có'}
+Ngày hôm nay: ${today}`;
+
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-allow-cors':'true'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',max_tokens:500,
+        system:CLAUDE_SYSTEM+' '+context,
+        messages:[{role:'user',content:text}]
+      })
+    });
+    const d=await res.json();
+    const raw=d.content?.[0]?.text||'{}';
+    let parsed;
+    try{parsed=JSON.parse(raw.replace(/```json|```/g,'').trim());}
+    catch{thinking.className='msg ai';thinking.textContent='Không hiểu yêu cầu, thử nói rõ hơn nhé!';return;}
+
+    thinking.remove();
+    await executeChatAction(parsed,today);
+  }catch(e){
+    thinking.className='msg ai';thinking.textContent='Lỗi kết nối Claude API. Kiểm tra kết nối internet.';
+    console.error(e);
+  }
+}
+
+async function executeChatAction(parsed,today){
+  const{action,data,message}=parsed;
+  if(action==='unknown'||!action){addMsg(message||'Không hiểu yêu cầu, thử nói rõ hơn!','ai');return;}
+
+  SS('s');
+  try{
+    if(action==='add_transaction'){
+      const date=data.date==='TODAY'?today:data.date||today;
+      const{error}=await sb.from('transactions').insert({date,description:data.description,category:data.category,type:data.type,amount:data.amount,payment_method:data.payment_method||'Tiền mặt'});
+      if(error)throw error;
+      const{d2}=await sb.from('transactions').select('*').order('date',{ascending:false}).order('created_at',{ascending:false});
+      if(d2)DB.transactions=d2; else{const r=await sb.from('transactions').select('*').order('date',{ascending:false});if(r.data)DB.transactions=r.data;}
+    }
+    else if(action==='update_investment_price'){
+      const inv=DB.investments.find(i=>i.name.toLowerCase()===data.name.toLowerCase()||i.name.toLowerCase().includes(data.name.toLowerCase()));
+      if(!inv){addMsg('Không tìm thấy mã '+data.name+' trong danh mục đầu tư.','ai');SS('ok');return;}
+      const{error}=await sb.from('investments').update({current_price:data.price,updated_at:new Date().toISOString()}).eq('id',inv.id);
+      if(error)throw error;
+      DB.investments=DB.investments.map(i=>i.id===inv.id?{...i,current_price:data.price}:i);
+    }
+    else if(action==='update_account_balance'){
+      const acc=DB.accounts.find(a=>a.name.toLowerCase().includes(data.name.toLowerCase()));
+      if(!acc){addMsg('Không tìm thấy tài khoản '+data.name+'.','ai');SS('ok');return;}
+      const{error}=await sb.from('bank_accounts').update({balance:data.balance,updated_at:new Date().toISOString()}).eq('id',acc.id);
+      if(error)throw error;
+      DB.accounts=DB.accounts.map(a=>a.id===acc.id?{...a,balance:data.balance}:a);
+    }
+    else if(action==='update_cash'){
+      const ca=DB.cash.find(c=>c.name.toLowerCase().includes((data.name||'').toLowerCase()))||DB.cash[0];
+      if(!ca){addMsg('Không tìm thấy khoản tiền mặt nào.','ai');SS('ok');return;}
+      const{error}=await sb.from('cash_items').update({amount:data.amount,updated_at:new Date().toISOString()}).eq('id',ca.id);
+      if(error)throw error;
+      DB.cash=DB.cash.map(c=>c.id===ca.id?{...c,amount:data.amount}:c);
+    }
+    else if(action==='add_debt'){
+      const{data:nd,error}=await sb.from('debts').insert({person_name:data.person_name,amount:data.amount,direction:data.direction||'owed-to-me',note:data.note||''}).select().single();
+      if(error)throw error;
+      DB.debts.unshift(nd);
+    }
+    else if(action==='settle_debt'){
+      const debt=DB.debts.find(d=>!d.settled&&d.person_name.toLowerCase().includes(data.name.toLowerCase()));
+      if(!debt){addMsg('Không tìm thấy khoản nợ của '+data.name+'.','ai');SS('ok');return;}
+      const{error}=await sb.from('debts').update({settled:true,settled_at:new Date().toISOString()}).eq('id',debt.id);
+      if(error)throw error;
+      DB.debts=DB.debts.map(d=>d.id===debt.id?{...d,settled:true}:d);
+    }
+    else if(action==='add_goal_amount'){
+      const goal=DB.goals.find(g=>g.name.toLowerCase().includes(data.name.toLowerCase()));
+      if(!goal){addMsg('Không tìm thấy mục tiêu '+data.name+'.','ai');SS('ok');return;}
+      const newAmt=goal.current_amount+data.amount;
+      const{error}=await sb.from('goals').update({current_amount:newAmt,updated_at:new Date().toISOString()}).eq('id',goal.id);
+      if(error)throw error;
+      DB.goals=DB.goals.map(g=>g.id===goal.id?{...g,current_amount:newAmt}:g);
+    }
+    SS('ok');
+    addMsg(message||'Đã cập nhật!','ai');
+    refreshPage();
+  }catch(e){
+    SS('e');addMsg('Lỗi: '+e.message,'ai');
+  }
+}
 
 init();
 </script>
