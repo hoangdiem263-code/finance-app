@@ -441,6 +441,14 @@ input:focus,select:focus{border-color:var(--text2)}
     <div class="sr"><div><div class="srl">Xuất JSON (backup)</div><div class="srd">Tải toàn bộ dữ liệu về máy</div></div><button class="btn bo bsm" onclick="exportData()"><i class="ti ti-download"></i> Xuất</button></div>
     <div class="sr"><div><div class="srl">Xuất CSV giao dịch</div><div class="srd">Mở bằng Excel / Sheets</div></div><button class="btn bo bsm" onclick="exportCSV()"><i class="ti ti-file-spreadsheet"></i> CSV</button></div>
   </div>
+  <div class="card">
+    <div class="ctitle">Cơ sở dữ liệu</div>
+    <div class="sr">
+      <div><div class="srl">Cập nhật schema tự động</div><div class="srd">Tạo các bảng mới nếu chưa có (chạy 1 lần sau mỗi lần update)</div></div>
+      <button class="btn bp bsm" onclick="runSetupDB()" id="btn-setup-db"><i class="ti ti-database"></i> Setup DB</button>
+    </div>
+    <div id="setup-db-log" style="font-size:11px;color:var(--text2);margin-top:8px;display:none;line-height:1.8"></div>
+  </div>
 </div>
 
 <!-- CLAUDE CHAT FAB -->
@@ -1394,6 +1402,71 @@ async function executeChatAction(parsed,today){
   }catch(e){
     SS('e');addMsg('Lỗi: '+e.message,'ai');
   }
+}
+
+// ── SETUP DB ──
+async function runSetupDB(){
+  const btn=document.getElementById('btn-setup-db');
+  const log=document.getElementById('setup-db-log');
+  btn.disabled=true; log.style.display='block'; log.innerHTML='⏳ Đang chạy...';
+
+  const sqls=[
+    {
+      name:'Tạo bảng cc_items',
+      sql:`create table if not exists cc_items (
+        id uuid primary key default gen_random_uuid(),
+        card_id uuid references credit_cards(id) on delete cascade,
+        name text not null,
+        total_amount bigint not null,
+        remaining_amount bigint not null,
+        type text not null default 'normal' check (type in ('normal','installment')),
+        installment_months int,
+        paid_months int not null default 0,
+        start_date date,
+        note text,
+        settled boolean not null default false,
+        settled_at timestamptz,
+        created_at timestamptz default now(),
+        updated_at timestamptz default now()
+      )`
+    },
+    {name:'Tắt RLS cc_items', sql:'alter table cc_items disable row level security'},
+    {name:'Bật Realtime cc_items', sql:'alter publication supabase_realtime add table cc_items'},
+  ];
+
+  let allOk=true;
+  for(const{name,sql} of sqls){
+    log.innerHTML+=`<div>⏳ ${name}...</div>`;
+    try{
+      const{error}=await sb.rpc('exec_sql',{sql_query:sql}).throwOnError().catch(()=>{
+        // fallback: try direct query via postgrest
+        return{error:{message:'rpc not available'}};
+      });
+      if(error){
+        // Try alternative: use supabase-js .from() workaround
+        log.innerHTML+=`<div style="color:var(--amber)">⚠️ ${name}: ${error.message}</div>`;
+        allOk=false;
+      } else {
+        log.innerHTML+=`<div style="color:var(--green)">✅ ${name}</div>`;
+      }
+    }catch(e){
+      log.innerHTML+=`<div style="color:var(--amber)">⚠️ ${name}: ${e.message}</div>`;
+      allOk=false;
+    }
+  }
+
+  // Verify by trying to select from cc_items
+  const{error:testErr}=await sb.from('cc_items').select('id').limit(1);
+  if(!testErr){
+    log.innerHTML+=`<div style="color:var(--green);font-weight:500;margin-top:4px">✅ Bảng cc_items sẵn sàng!</div>`;
+    // Reload cc_items
+    const{data}=await sb.from('cc_items').select('*').order('created_at',{ascending:false});
+    if(data){DB.ccItems=data;}
+  } else {
+    log.innerHTML+=`<div style="color:var(--red);margin-top:4px">❌ Bảng cc_items chưa tồn tại. Vui lòng chạy schema_v3.sql trong Supabase SQL Editor.</div>`;
+    log.innerHTML+=`<div style="margin-top:6px;padding:8px;background:var(--bg2);border-radius:6px;font-family:monospace;font-size:10px;user-select:all">create table if not exists cc_items (id uuid primary key default gen_random_uuid(), card_id uuid references credit_cards(id) on delete cascade, name text not null, total_amount bigint not null, remaining_amount bigint not null, type text not null default 'normal' check (type in ('normal','installment')), installment_months int, paid_months int not null default 0, start_date date, note text, settled boolean not null default false, settled_at timestamptz, created_at timestamptz default now(), updated_at timestamptz default now()); alter table cc_items disable row level security; alter publication supabase_realtime add table cc_items;</div>`;
+  }
+  btn.disabled=false;
 }
 
 init();
