@@ -1180,9 +1180,11 @@ async function payCard(id,partial){
   const card=DB.cards.find(c=>c.id===id);if(!card||card.balance===0)return alert('Dư nợ đang là 0');
   let amount=card.balance;
   if(partial){
-    const v=parseInt(document.getElementById('cc-pay-'+id).value);
-    if(isNaN(v)||v<=0)return alert('Nhập số tiền cần trả');
-    if(v>card.balance)return alert('Số tiền trả vượt quá dư nợ ('+fmtF(card.balance)+')');
+    const payEl=document.getElementById('cc-pay-'+id);
+    if(!payEl||payEl.value===''||payEl.value===null)return alert('Vui lòng nhập số tiền muốn trả');
+    const v=parseInt(payEl.value);
+    if(isNaN(v)||v<=0)return alert('Số tiền không hợp lệ');
+    if(v>card.balance)return alert('Số tiền trả ('+fmtF(v)+') vượt quá dư nợ ('+fmtF(card.balance)+')');
     amount=v;
   }
   if(!confirm('Thanh toán '+fmtF(amount)+' cho '+card.name+'?'))return;
@@ -1194,11 +1196,15 @@ async function payCard(id,partial){
   card.balance=newBal;SS('ok');renderCredit();
 }
 async function adjustCard(id){
-  const v=parseInt(document.getElementById('cc-adj-'+id).value);
-  if(isNaN(v)||v<0)return alert('Nhập số tiền hợp lệ');
+  const el=document.getElementById('cc-adj-'+id);
+  if(!el||el.value===''||el.value===null)return alert('Vui lòng nhập số tiền dư nợ muốn cập nhật (nhập 0 nếu đã trả hết)');
+  const v=parseInt(el.value);
+  if(isNaN(v)||v<0)return alert('Số tiền không hợp lệ — nhập số nguyên dương hoặc 0');
+  if(!confirm('Cập nhật dư nợ thành '+fmtF(v)+'?'))return;
   SS('s');const{error}=await sb.from('credit_cards').update({balance:v,updated_at:new Date().toISOString()}).eq('id',id);
   if(error){alert('Lỗi: '+error.message);SS('e');return;}
-  DB.cards=DB.cards.map(c=>c.id===id?{...c,balance:v}:c);SS('ok');renderCredit();
+  DB.cards=DB.cards.map(c=>c.id===id?{...c,balance:v}:c);
+  el.value='';SS('ok');renderCredit();
 }
 async function delCard(id){
   if(!confirm('Xóa thẻ này?'))return;SS('s');
