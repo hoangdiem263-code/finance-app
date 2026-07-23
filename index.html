@@ -199,7 +199,9 @@ input:focus,select:focus{border-color:var(--text2)}
     <div class="card"><div class="ctitle">Chi tiêu theo danh mục</div><div style="position:relative;height:190px"><canvas id="chart-cat"></canvas></div><div id="cat-leg" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;font-size:11px;color:var(--text2)"></div></div>
     <div class="card"><div class="ctitle">Dòng tiền 6 tháng</div><div style="position:relative;height:190px"><canvas id="chart-flow"></canvas></div></div>
   </div>
-  <div class="card"><div class="ctitle">Ngân sách 50/20/30</div><div id="budget-bars"></div></div>
+  <div class="card"><div class="ctitle">Ngân sách tháng</div><div id="budget-bars"></div></div>
+  <div class="g2" style="margin-top:14px"><div class="card"><div class="ctitle">Sức khoẻ tài chính</div><div id="health-score"></div></div><div class="card"><div class="ctitle">Mục tiêu</div><div id="dash-goals"></div></div></div>
+  <div class="card" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div class="ctitle" style="margin-bottom:0">Giao dịch gần nhất</div><button class="btn bo bsm" onclick="P('transactions')">Xem tất cả</button></div><div id="dash-recent-tx"></div></div>
 </div>
 
 <!-- TIỀN MẶT -->
@@ -247,9 +249,9 @@ input:focus,select:focus{border-color:var(--text2)}
     </div>
     <div class="fr">
       <div class="fc"><label class="fl">Lãi suất (%/năm)</label><input type="number" id="sv-rate" placeholder="5.5" step="0.1"></div>
-      <div class="fc"><label class="fl">Ngày gửi</label><input type="date" id="sv-start"></div>
-      <div class="fc"><label class="fl">Ngày đáo hạn</label><input type="date" id="sv-end"></div>
-      <div class="fc"><label class="fl">Giá trị hiện tại (đ)</label><input type="number" id="sv-current" placeholder="0"></div>
+      <div class="fc"><label class="fl">Ngày gửi</label><input type="date" id="sv-start" onchange="calcEndDate()"></div>
+      <div class="fc"><label class="fl">Kỳ hạn</label><select id="sv-duration" onchange="calcEndDate()"><option value="1">1 tháng</option><option value="3">3 tháng</option><option value="6" selected>6 tháng</option><option value="9">9 tháng</option><option value="12">12 tháng</option><option value="18">18 tháng</option><option value="24">24 tháng</option><option value="36">36 tháng</option></select></div>
+      <div class="fc"><label class="fl">Ngày đáo hạn (tự tính)</label><input type="text" id="sv-end-display" readonly style="background:var(--bg3);color:var(--text3)"></div>
     </div>
     <button class="btn bp" id="btn-add-sv" onclick="addSaving()"><i class="ti ti-plus"></i> Thêm</button>
   </div>
@@ -689,13 +691,43 @@ function renderDash(){
   const netArr=months.map(m=>{const mt=getTxByMonth(m);const inc=mt.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0)||mi;const exp=mt.filter(t=>['expense','cc'].includes(t.type)).reduce((s,t)=>s+t.amount,0);return inc-exp;});
   if(chartFlow){chartFlow.destroy();chartFlow=null;}
   chartFlow=new Chart(document.getElementById('chart-flow'),{type:'line',data:{labels:months.map(m=>{const[y,mo]=m.split('-');return'T'+parseInt(mo)+'/'+y.slice(2);}),datasets:[{label:'Dòng tiền',data:netArr,borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.07)',tension:0.35,fill:true,pointBackgroundColor:'#1D9E75',pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>fmt(v)},grid:{color:'rgba(128,128,128,0.08)'}},x:{grid:{display:false}}}}});
-  // Budget
+  // Budget 40/20/20/19/1
+  const spendCats=['Ăn uống','Di chuyển','Hóa đơn','Gia đình','Mua sắm','Giải trí','Khác'];
+  const spend=txs.filter(t=>spendCats.includes(t.category)&&['expense','cc'].includes(t.type)).reduce((s,t)=>s+t.amount,0);
+  const savingLT=txs.filter(t=>t.type==='saving').reduce((s,t)=>s+t.amount,0);
+  const investLT=txs.filter(t=>t.category==='Đầu tư').reduce((s,t)=>s+t.amount,0);
+  const selfDev=txs.filter(t=>t.category==='Sức khỏe'&&['expense','cc'].includes(t.type)).reduce((s,t)=>s+t.amount,0);
+  const donate=txs.filter(t=>t.category==='Quyên góp').reduce((s,t)=>s+t.amount,0);
   const budgets=[
-    {label:'Nhu cầu thiết yếu (50%)',target:mi*.5,actual:txs.filter(t=>['Ăn uống','Di chuyển','Hóa đơn','Gia đình','Sức khỏe'].includes(t.category)&&['expense','cc'].includes(t.type)).reduce((s,t)=>s+t.amount,0),color:'#1D9E75'},
-    {label:'Tiết kiệm & đầu tư (20%)',target:mi*.2,actual:saving,color:'#378ADD'},
-    {label:'Cá nhân & giải trí (30%)',target:mi*.3,actual:txs.filter(t=>['Mua sắm','Giải trí','Khác'].includes(t.category)&&['expense','cc'].includes(t.type)).reduce((s,t)=>s+t.amount,0),color:'#BA7517'},
+    {label:'Chi tiêu thiết yếu & giải trí (40%)',target:mi*.4,actual:spend,color:'#1D9E75'},
+    {label:'Tiết kiệm dài hạn (20%)',target:mi*.2,actual:savingLT,color:'#378ADD'},
+    {label:'Đầu tư dài hạn (20%)',target:mi*.2,actual:investLT,color:'#7F77DD'},
+    {label:'Tiết kiệm ngắn hạn & học tập (19%)',target:mi*.19,actual:selfDev,color:'#BA7517'},
+    {label:'Quyên góp (1%)',target:mi*.01,actual:donate,color:'#D4537E'},
   ];
-  document.getElementById('budget-bars').innerHTML=budgets.map(b=>{const pct=b.target>0?Math.min(100,Math.round(b.actual/b.target*100)):0;const ov=b.actual>b.target;return`<div style="margin-bottom:13px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--text2)">${b.label}</span><span style="font-weight:500;color:${ov?'var(--red)':'var(--text)'}">${fmt(b.actual)} / ${fmt(b.target)}</span></div><div class="prog"><div class="pf" style="width:${pct}%;background:${ov?'var(--red)':b.color}"></div></div></div>`;}).join('');
+  document.getElementById('budget-bars').innerHTML=budgets.map(b=>{const pct=b.target>0?Math.min(100,Math.round(b.actual/b.target*100)):0;const ov=b.actual>b.target;return`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--text2)">${b.label}</span><span style="font-weight:500;color:${ov?'var(--red)':'var(--text)'}">${fmt(b.actual)} / ${fmt(b.target)}</span></div><div class="prog"><div class="pf" style="width:${pct}%;background:${ov?'var(--red)':b.color}"></div></div></div>`;}).join('');
+
+  // Health score
+  const nw=calcNetWorth();let score=0,tips=[];
+  const svRate=mi>0?savingLT/mi:0;
+  if(svRate>=0.2)score+=30;else if(svRate>=0.1){score+=15;tips.push('💡 Tiết kiệm đang dưới 20% — mục tiêu '+fmt(mi*.2)+'/tháng');}else tips.push('⚠️ Cần tiết kiệm ít nhất 20% thu nhập ('+fmt(mi*.2)+')');
+  const emF=DB.goals.find(g=>g.name.toLowerCase().includes('khẩn'));
+  if(emF&&emF.current_amount>=mi*3)score+=25;else{score+=Math.min(25,Math.round((emF?.current_amount||0)/(mi*3)*25));tips.push('💡 Quỹ khẩn cấp: '+fmt(emF?.current_amount||0)+' / '+fmt(mi*3)+' mục tiêu');}
+  const ccD=DB.cards.reduce((s,c)=>s+c.balance,0);
+  if(ccD===0)score+=25;else if(ccD<mi){score+=15;tips.push('💳 Nợ thẻ '+fmt(ccD)+' — đang kiểm soát tốt');}else tips.push('⚠️ Nợ thẻ '+fmt(ccD)+' vượt 1 tháng lương');
+  if(investLT>0)score+=20;else tips.push('📈 Chưa có khoản đầu tư tháng này');
+  const sColor=score>=80?'var(--green)':score>=60?'var(--amber)':'var(--red)';
+  const sLabel=score>=80?'Rất tốt 🎉':score>=60?'Ổn định 👍':score>=40?'Cần cải thiện ⚡':'Cần chú ý ⚠️';
+  const hEl=document.getElementById('health-score');
+  if(hEl)hEl.innerHTML=`<div style="display:flex;align-items:center;gap:14px;margin-bottom:10px"><div style="font-size:40px;font-weight:700;color:${sColor}">${score}</div><div><div style="font-size:14px;font-weight:600">${sLabel}</div><div style="font-size:11px;color:var(--text3)">Điểm sức khoẻ /100</div></div></div><div class="prog" style="height:7px;margin-bottom:10px"><div class="pf" style="width:${score}%;background:${sColor}"></div></div>${tips.map(t=>`<div style="font-size:12px;color:var(--text2);padding:3px 0;border-bottom:0.5px solid var(--border)">${t}</div>`).join('')}${tips.length===0?'<div style="font-size:12px;color:var(--green)">✅ Tài chính đang rất ổn định!</div>':''}`;
+
+  // Goals on dashboard
+  const gEl=document.getElementById('dash-goals');
+  if(gEl)gEl.innerHTML=DB.goals.length===0?'<div style="font-size:12px;color:var(--text3)">Chưa có mục tiêu. <span style="cursor:pointer;color:var(--blue);text-decoration:underline" onclick="P('goals')">Thêm ngay</span></div>':DB.goals.slice(0,3).map(g=>{const pct=Math.min(100,Math.round(g.current_amount/g.target_amount*100));const col=pct>=100?'var(--green)':pct>=50?'var(--blue)':'var(--amber)';return`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="font-weight:500">${g.name}</span><span style="color:${col}">${pct}%</span></div><div class="prog"><div class="pf" style="width:${pct}%;background:${col}"></div></div><div style="font-size:11px;color:var(--text3);margin-top:2px">${fmt(g.current_amount)} / ${fmt(g.target_amount)}</div></div>`;}).join('');
+
+  // Recent tx
+  const rtEl=document.getElementById('dash-recent-tx');
+  if(rtEl)rtEl.innerHTML=DB.transactions.slice(0,5).map(t=>`<div class="ri"><div class="ic"><i class="ti ${CI[t.category]||'ti-dots'}"></i></div><div class="rm"><div class="rn">${t.description}</div><div class="rs">${t.date} · ${t.category}</div></div><div class="ra ${t.type==='income'||t.type==='refund'?'cg':'cr'}">${t.type==='income'||t.type==='refund'?'+':'−'}${fmt(t.amount)}</div></div>`).join('')||'<div style="font-size:12px;color:var(--text3);padding:8px 0">Chưa có giao dịch</div>';
 }
 
 // ── TIỀN MẶT ──
@@ -773,28 +805,35 @@ function renderSavings(){
   const total=DB.savings.reduce((s,sv)=>s+sv.current_value,0);
   const totalPrincipal=DB.savings.reduce((s,sv)=>s+sv.principal,0);
   const totalInterest=total-totalPrincipal;
+  const today2=new Date();today2.setHours(0,0,0,0);
+  const calcAI=sv=>{if(!sv.principal||!sv.interest_rate||!sv.start_date)return sv.principal||0;const days=Math.max(0,Math.ceil((today2-new Date(sv.start_date+'T00:00:00'))/(864e5)));return Math.round(sv.principal*(1+sv.interest_rate/100*days/365));};
   if(DB.savings.length===0){document.getElementById('sv-list').innerHTML='<div class="empty"><i class="ti ti-piggy-bank"></i>Chưa có tài khoản tiết kiệm nào</div>';return;}
+  const svAI=DB.savings.map(sv=>({...sv,_ai:calcAI(sv)}));
+  const totAI=svAI.reduce((s,sv)=>s+sv._ai,0),totP=svAI.reduce((s,sv)=>s+sv.principal,0);
   document.getElementById('sv-list').innerHTML=`<div class="g3" style="margin-bottom:14px">
-    <div class="metric"><div class="ml">Tổng giá trị hiện tại</div><div class="mv ca">${fmt(total)}</div></div>
-    <div class="metric"><div class="ml">Tổng tiền gốc</div><div class="mv">${fmt(totalPrincipal)}</div></div>
-    <div class="metric"><div class="ml">Lãi tích lũy</div><div class="mv cg">${fmt(totalInterest)}</div></div>
+    <div class="metric"><div class="ml">Tổng giá trị (tự tính)</div><div class="mv ca">${fmt(totAI)}</div></div>
+    <div class="metric"><div class="ml">Tổng tiền gốc</div><div class="mv">${fmt(totP)}</div></div>
+    <div class="metric"><div class="ml">Lãi tích luỹ đến nay</div><div class="mv cg">+${fmt(totAI-totP)}</div></div>
   </div>`+
-  DB.savings.map(sv=>{
-    const interest=sv.current_value-sv.principal;
-    const today=new Date();today.setHours(0,0,0,0);
-    let daysLeft='';
-    if(sv.end_date){const ed=new Date(sv.end_date+'T00:00:00');const dl=Math.ceil((ed-today)/(864e5));daysLeft=dl>0?`Còn ${dl} ngày`:'⚠️ Đã đáo hạn!';}
-    return`<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
-      <div><div style="font-size:14px;font-weight:600">${sv.name}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${sv.bank}${sv.interest_rate?` · ${sv.interest_rate}%/năm`:''}${daysLeft?' · '+daysLeft:''}</div></div>
-      <button class="bd" onclick="delSaving('${sv.id}')"><i class="ti ti-trash"></i></button></div>
-      <div class="g3">
-        <div><div style="font-size:11px;color:var(--text2)">Tiền gốc</div><div style="font-size:15px;font-weight:600">${fmt(sv.principal)}</div></div>
-        <div><div style="font-size:11px;color:var(--text2)">Giá trị HT</div><div style="font-size:15px;font-weight:600;color:var(--amber)">${fmt(sv.current_value)}</div></div>
-        <div><div style="font-size:11px;color:var(--text2)">Lãi</div><div style="font-size:15px;font-weight:600;color:${interest>=0?'var(--green)':'var(--red)'}">${interest>=0?'+':''}${fmt(interest)}</div></div>
+  svAI.map(sv=>{
+    const autoInt=sv._ai-sv.principal;
+    let daysLeft=null,dColor='var(--text3)',dStr='';
+    if(sv.end_date){const ed=new Date(sv.end_date+'T00:00:00');daysLeft=Math.ceil((ed-today2)/(864e5));dStr=daysLeft>0?`Còn ${daysLeft} ngày đáo hạn`:'⚠️ Đã đáo hạn!';dColor=daysLeft<=0?'var(--red)':daysLeft<=5?'var(--red)':daysLeft<=14?'var(--amber)':'var(--text3)';}
+    const dur=sv.duration_months?sv.duration_months+'th':'';
+    const bColor=daysLeft!==null&&daysLeft<=5?'#A32D2D':daysLeft!==null&&daysLeft<=14?'#BA7517':'var(--border)';
+    const bWidth=daysLeft!==null&&daysLeft<=14?'2px':'0.5px';
+    return`<div class="card" style="border-color:${bColor};border-width:${bWidth}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+        <div><div style="font-size:14px;font-weight:600">${sv.name}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${sv.bank}${sv.interest_rate?` · ${sv.interest_rate}%/năm`:''}${dur?' · '+dur:''}${sv.start_date?' · '+sv.start_date:''}</div>
+        ${dStr?`<div style="font-size:11px;font-weight:500;color:${dColor};margin-top:2px">${dStr}</div>`:''}</div>
+        <button class="bd" onclick="delSaving('${sv.id}')"><i class="ti ti-trash"></i></button>
       </div>
-      <div style="display:flex;gap:6px;margin-top:10px;align-items:center">
-        <input type="number" placeholder="Cập nhật giá trị hiện tại (đ)" id="sv-upd-${sv.id}" style="max-width:220px;font-size:12px">
-        <button class="btn bo bsm" onclick="updateSaving('${sv.id}')"><i class="ti ti-check"></i> Cập nhật</button>
+      <div class="g4">
+        <div><div style="font-size:11px;color:var(--text2)">Tiền gốc</div><div style="font-size:15px;font-weight:600">${fmt(sv.principal)}</div></div>
+        <div><div style="font-size:11px;color:var(--text2)">Lãi tới nay</div><div style="font-size:15px;font-weight:600;color:var(--green)">+${fmt(autoInt)}</div></div>
+        <div><div style="font-size:11px;color:var(--text2)">Ước tính HT</div><div style="font-size:15px;font-weight:600;color:var(--amber)">${fmt(sv._ai)}</div></div>
+        <div><div style="font-size:11px;color:var(--text2)">Đáo hạn</div><div style="font-size:12px;font-weight:500;color:${dColor}">${sv.end_date||'—'}</div></div>
       </div>
     </div>`;
   }).join('');
@@ -805,12 +844,15 @@ async function addSaving(){
   const principal=parseInt(document.getElementById('sv-principal').value);
   const rate=parseFloat(document.getElementById('sv-rate').value)||0;
   const start=document.getElementById('sv-start').value||null;
-  const end=document.getElementById('sv-end').value||null;
-  const current=parseInt(document.getElementById('sv-current').value)||principal;
+  const dur=parseInt(document.getElementById('sv-duration').value)||6;
+  const endEl=document.getElementById('sv-end-display');
+  const end=endEl.dataset.isodate||null;
+  let current=principal;
+  if(start&&rate){const days=Math.max(0,Math.ceil((new Date()-new Date(start+'T00:00:00'))/(864e5)));current=Math.round(principal*(1+rate/100*days/365));}
   if(!name||!bank||isNaN(principal))return alert('Điền đủ thông tin');
   const btn=document.getElementById('btn-add-sv');btn.disabled=true;SS('s');
-  const{data,error}=await sb.from('savings').insert({name,bank,principal,interest_rate:rate,start_date:start,end_date:end,current_value:current}).select().single();
-  if(error){alert('Lỗi: '+error.message);SS('e');}else{DB.savings.push(data);['sv-name','sv-bank','sv-principal','sv-rate','sv-start','sv-end','sv-current'].forEach(id=>document.getElementById(id).value='');SS('ok');renderSavings();}
+  const{data,error}=await sb.from('savings').insert({name,bank,principal,interest_rate:rate,start_date:start,end_date:end,duration_months:dur,current_value:current}).select().single();
+  if(error){alert('Lỗi: '+error.message);SS('e');}else{DB.savings.push(data);['sv-name','sv-bank','sv-principal','sv-rate','sv-start'].forEach(id=>document.getElementById(id).value='');endEl.value='';delete endEl.dataset.isodate;SS('ok');renderSavings();}
   btn.disabled=false;
 }
 async function updateSaving(id){
@@ -961,6 +1003,7 @@ function renderCredit(){
   document.getElementById('cc-list').innerHTML=DB.cards.map(c=>{
     const items=DB.ccItems.filter(i=>i.card_id===c.id&&!i.settled);
     const itemsTotal=items.reduce((s,i)=>s+i.remaining_amount,0);
+    const consumeBalance=Math.max(0,c.balance-itemsTotal);
     const pct=Math.min(100,Math.round(c.balance/c.credit_limit*100));
     const avail=c.credit_limit-c.balance;
     const color=pct>70?'var(--red)':pct>40?'var(--amber)':'var(--green)';
@@ -973,10 +1016,10 @@ function renderCredit(){
       <button class="bd" onclick="delCard('${c.id}')"><i class="ti ti-trash"></i></button>
     </div>
     <div class="g4" style="margin-bottom:10px">
-      <div><div style="font-size:11px;color:var(--text2)">Dư nợ tổng</div><div style="font-size:18px;font-weight:600;color:${color}">${fmtF(c.balance)}</div></div>
-      <div><div style="font-size:11px;color:var(--text2)">Theo khoản mục</div><div style="font-size:18px;font-weight:600;color:var(--amber)">${fmtF(itemsTotal)}</div></div>
-      <div><div style="font-size:11px;color:var(--text2)">Hạn mức còn lại</div><div style="font-size:18px;font-weight:600;color:var(--green)">${fmtF(avail)}</div></div>
-      <div><div style="font-size:11px;color:var(--text2)">Hạn mức tổng</div><div style="font-size:14px;font-weight:500">${fmtF(c.credit_limit)}</div></div>
+      <div><div style="font-size:11px;color:var(--text2)">Dư nợ tổng</div><div style="font-size:18px;font-weight:600;color:${color}">${fmtF(itemsTotal+consumeBalance)}</div></div>
+      <div><div style="font-size:11px;color:var(--text2)">Nợ khoản mục</div><div style="font-size:18px;font-weight:600;color:var(--amber)">${fmtF(itemsTotal)}</div></div>
+      <div><div style="font-size:11px;color:var(--text2)">Tiêu dùng khác</div><div style="font-size:16px;font-weight:600;color:var(--text2)">${fmtF(consumeBalance)}</div></div>
+      <div><div style="font-size:11px;color:var(--text2)">Hạn mức còn lại</div><div style="font-size:18px;font-weight:600;color:var(--green)">${fmtF(c.credit_limit-itemsTotal-consumeBalance)}</div></div>
     </div>
     <div class="prog" style="height:7px;margin-bottom:8px"><div class="pf" style="width:${pct}%;background:${color}"></div></div>
     <div style="font-size:11px;color:var(--text3);margin-bottom:12px">${pct}% hạn mức đã dùng</div>
@@ -1403,6 +1446,8 @@ async function executeChatAction(parsed,today){
     SS('e');addMsg('Lỗi: '+e.message,'ai');
   }
 }
+
+function calcEndDate(){const s=document.getElementById('sv-start').value;const dur=parseInt(document.getElementById('sv-duration')?document.getElementById('sv-duration').value:6)||6;if(!s){document.getElementById('sv-end-display').value='';return;}const d=new Date(s+'T00:00:00');d.setMonth(d.getMonth()+dur);const el=document.getElementById('sv-end-display');el.value=d.toLocaleDateString('vi-VN');el.dataset.isodate=d.toISOString().split('T')[0];}
 
 // ── SETUP DB ──
 async function runSetupDB(){
