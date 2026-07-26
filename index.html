@@ -328,10 +328,10 @@ input:focus,select:focus{border-color:var(--text2)}
         <select id="tx-cat"><option>Ăn uống</option><option>Di chuyển</option><option>Mua sắm</option><option>Giải trí</option><option>Sức khỏe</option><option>Gia đình</option><option>Hóa đơn</option><option>Thu nhập</option><option>Tiết kiệm</option><option>Chi hộ</option><option>Đầu tư</option><option>Khác</option></select>
       </div>
       <div class="fc"><label class="fl">Loại</label>
-        <select id="tx-type"><option value="expense">Chi tiêu</option><option value="income">Thu nhập</option><option value="saving">Tiết kiệm</option><option value="on-behalf">Chi hộ</option><option value="refund">Hoàn tiền</option><option value="cc">Thẻ tín dụng</option></select>
+        <select id="tx-type" onchange="populateTxPay()"><option value="expense">Chi tiêu</option><option value="income">Thu nhập</option><option value="saving">Tiết kiệm</option><option value="on-behalf">Chi hộ</option><option value="refund">Hoàn tiền</option><option value="cc">Thẻ tín dụng</option></select>
       </div>
       <div class="fc"><label class="fl">Thanh toán qua</label>
-        <select id="tx-pay"><option>Tiền mặt</option><option>Thẻ nội địa</option><option>Visa</option><option>Mastercard</option><option>Chuyển khoản</option><option>Momo</option></select>
+        <select id="tx-pay" onchange="onPayChange()"></select>
       </div>
       <div class="fc"><label class="fl">Số tiền (đ)</label><input type="number" id="tx-amount" placeholder="0"></div>
     </div>
@@ -528,6 +528,7 @@ async function init(){
     document.getElementById('lo').classList.add('h');
     document.getElementById('app').style.display='flex';
     document.getElementById('tx-date').value=new Date().toISOString().split('T')[0];
+  populateTxPay();
     populateMonths();renderNetWorth();subscribeRT();SS('ok');
   }catch(e){
     console.error(e);
@@ -835,6 +836,11 @@ function renderSavings(){
         <div><div style="font-size:11px;color:var(--text2)">Ước tính HT</div><div style="font-size:15px;font-weight:600;color:var(--amber)">${fmt(sv._ai)}</div></div>
         <div><div style="font-size:11px;color:var(--text2)">Đáo hạn</div><div style="font-size:12px;font-weight:500;color:${dColor}">${sv.end_date||'—'}</div></div>
       </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap">
+        <button class="bs bsm" onclick="withdrawSaving('${sv.id}','full')"><i class="ti ti-cash"></i> Rút toàn bộ (${fmt(sv._ai)})</button>
+        <input type="number" placeholder="Rút 1 phần (đ)" id="sv-wd-${sv.id}" style="max-width:160px;font-size:12px">
+        <button class="btn bo bsm" onclick="withdrawSaving('${sv.id}','partial')"><i class="ti ti-arrow-up"></i> Rút 1 phần</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -962,21 +968,115 @@ function renderTx(){
     <button class="bd" onclick="delTx('${t.id}')"><i class="ti ti-trash"></i></button>
   </div>`).join('');
 }
+function populateTxPay(){
+  const type=document.getElementById('tx-type').value;
+  const sel=document.getElementById('tx-pay');
+  const prev=sel.value;
+  let opts=[];
+  // Always include cash & bank accounts
+  opts.push({val:'Tiền mặt',label:'💵 Tiền mặt'});
+  DB.accounts.forEach(a=>{
+    const icon=a.type==='ewallet'?'📱':a.type==='bank'?'🏦':'💵';
+    opts.push({val:a.id,label:`${icon} ${a.name} (${fmt(a.balance)})`});
+  });
+  // Add credit cards - only for expense/cc type
+  if(['expense','cc','on-behalf'].includes(type)){
+    DB.cards.forEach(c=>{
+      opts.push({val:'cc:'+c.id,label:`💳 ${c.name} (còn ${fmt(c.credit_limit-c.balance)})`});
+    });
+  }
+  sel.innerHTML=opts.map(o=>`<option value="${o.val}"${o.val===prev?' selected':''}>${o.label}</option>`).join('');
+  onPayChange();
+}
+
+function onPayChange(){
+  const pay=document.getElementById('tx-pay').value;
+  const typeEl=document.getElementById('tx-type');
+  // Auto-switch type to cc if credit card selected
+  if(pay.startsWith('cc:')){
+    typeEl.value='cc';
+  }
+}
+
+async function withdrawSaving(id,mode){
+  const sv=DB.savings.find(s=>s.id===id);if(!sv)return;
+  const calcAI2=s=>{if(!s.principal||!s.interest_rate||!s.start_date)return s.principal||0;const days=Math.max(0,Math.ceil((new Date()-new Date(s.start_date+'T00:00:00'))/(864e5)));return Math.round(s.principal*(1+s.interest_rate/100*days/365));};
+  const currentVal=calcAI2(sv);
+  let withdrawAmt=currentVal;
+  if(mode==='partial'){
+    const el=document.getElementById('sv-wd-'+id);
+    if(!el||el.value==='')return alert('Nhập số tiền muốn rút');
+    withdrawAmt=parseInt(el.value);
+    if(isNaN(withdrawAmt)||withdrawAmt<=0)return alert('Số tiền không hợp lệ');
+    if(withdrawAmt>currentVal)return alert('Vượt quá giá trị hiện tại ('+fmtF(currentVal)+')');
+  }
+  const isFullWithdraw=withdrawAmt>=currentVal;
+  if(!confirm(`Rút ${fmtF(withdrawAmt)} từ "${sv.name}"?${isFullWithdraw?' Tài khoản tiết kiệm sẽ bị đóng.':''}`))return;
+  SS('s');
+  const today=new Date().toISOString().split('T')[0];
+  // Record as income transaction
+  const interest=Math.max(0,withdrawAmt-(sv.principal*(withdrawAmt/currentVal)));
+  await sb.from('transactions').insert({
+    date:today,
+    description:'Rút tiết kiệm: '+sv.name+(mode==='partial'?' (1 phần)':''),
+    category:'Thu nhập',type:'income',amount:withdrawAmt,payment_method:'Chuyển khoản'
+  });
+  if(isFullWithdraw){
+    // Close saving account
+    const{error}=await sb.from('savings').delete().eq('id',id);
+    if(error){alert('Lỗi: '+error.message);SS('e');return;}
+    DB.savings=DB.savings.filter(s=>s.id!==id);
+  } else {
+    // Reduce principal proportionally
+    const ratio=withdrawAmt/currentVal;
+    const newPrincipal=Math.round(sv.principal*(1-ratio));
+    const newVal=currentVal-withdrawAmt;
+    const{error}=await sb.from('savings').update({principal:newPrincipal,current_value:newVal,updated_at:new Date().toISOString()}).eq('id',id);
+    if(error){alert('Lỗi: '+error.message);SS('e');return;}
+    DB.savings=DB.savings.map(s=>s.id===id?{...s,principal:newPrincipal,current_value:newVal}:s);
+  }
+  // Reload transactions
+  const{data}=await sb.from('transactions').select('*').order('date',{ascending:false}).order('created_at',{ascending:false});
+  if(data)DB.transactions=data;
+  SS('ok');renderSavings();
+}
+
 async function addTx(){
   const date=document.getElementById('tx-date').value;
   const desc=document.getElementById('tx-desc').value.trim();
   const cat=document.getElementById('tx-cat').value;
   const type=document.getElementById('tx-type').value;
   const amount=parseInt(document.getElementById('tx-amount').value);
-  const pay=document.getElementById('tx-pay').value;
+  const payVal=document.getElementById('tx-pay').value;
+  // Resolve payment method label and linked account/card
+  let payLabel=payVal, linkedCardId=null, linkedAccId=null;
+  if(payVal.startsWith('cc:')){
+    linkedCardId=payVal.replace('cc:','');
+    const card=DB.cards.find(c=>c.id===linkedCardId);
+    payLabel=card?card.name:'Thẻ tín dụng';
+  } else {
+    const acc=DB.accounts.find(a=>a.id===payVal);
+    if(acc){payLabel=acc.name;linkedAccId=payVal;}
+  }
   if(!desc||!amount||!date||isNaN(amount))return alert('Điền đầy đủ thông tin');
   const btn=document.getElementById('btn-add-tx');btn.disabled=true;SS('s');
-  const{error}=await sb.from('transactions').insert({date,description:desc,category:cat,type,amount,payment_method:pay});
-  if(type==='cc'&&!error){const pl=pay.toLowerCase();const card=DB.cards.find(c=>c.name.toLowerCase().split(' ').some(w=>pl.includes(w)));if(card)await sb.from('credit_cards').update({balance:card.balance+amount,updated_at:new Date().toISOString()}).eq('id',card.id);}
+  const{error}=await sb.from('transactions').insert({date,description:desc,category:cat,type,amount,payment_method:payLabel});
+  if(!error){
+    // Auto-update credit card balance if paid via CC
+    if(linkedCardId){
+      const card=DB.cards.find(c=>c.id===linkedCardId);
+      if(card){await sb.from('credit_cards').update({balance:card.balance+amount,updated_at:new Date().toISOString()}).eq('id',linkedCardId);card.balance+=amount;}
+    }
+    // Auto-deduct bank account balance if paid via account
+    if(linkedAccId){
+      const acc=DB.accounts.find(a=>a.id===linkedAccId);
+      if(acc){const newBal=Math.max(0,acc.balance-amount);await sb.from('bank_accounts').update({balance:newBal,updated_at:new Date().toISOString()}).eq('id',linkedAccId);acc.balance=newBal;}
+    }
+  }
   if(error){alert('Lỗi: '+error.message);SS('e');}else{
     document.getElementById('tx-desc').value='';document.getElementById('tx-amount').value='';
     const{data}=await sb.from('transactions').select('*').order('date',{ascending:false}).order('created_at',{ascending:false});
-    if(data)DB.transactions=data;SS('ok');renderTx();
+    if(data)DB.transactions=data;SS('ok');renderTx();populateTxPay();
   }
   btn.disabled=false;
 }
