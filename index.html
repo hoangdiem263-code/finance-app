@@ -836,10 +836,16 @@ function renderSavings(){
         <div><div style="font-size:11px;color:var(--text2)">Ước tính HT</div><div style="font-size:15px;font-weight:600;color:var(--amber)">${fmt(sv._ai)}</div></div>
         <div><div style="font-size:11px;color:var(--text2)">Đáo hạn</div><div style="font-size:12px;font-weight:500;color:${dColor}">${sv.end_date||'—'}</div></div>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap">
-        <button class="bs bsm" onclick="withdrawSaving('${sv.id}','full')"><i class="ti ti-cash"></i> Rút toàn bộ (${fmt(sv._ai)})</button>
-        <input type="number" placeholder="Rút 1 phần (đ)" id="sv-wd-${sv.id}" style="max-width:160px;font-size:12px">
-        <button class="btn bo bsm" onclick="withdrawSaving('${sv.id}','partial')"><i class="ti ti-arrow-up"></i> Rút 1 phần</button>
+      <div style="margin-top:12px;padding-top:12px;border-top:0.5px solid var(--border)">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:7px">Nhận tiền vào tài khoản:</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select id="sv-acc-${sv.id}" style="font-size:12px;max-width:200px">${[{id:'',name:'-- Chọn tài khoản --'},...DB.accounts].map(a=>`<option value="${a.id}">${a.id?'🏦 ':''} ${a.name}${a.balance!==undefined?' ('+fmt(a.balance)+')':''}</option>`).join('')}</select>
+          <button class="bs bsm" onclick="withdrawSaving('${sv.id}','full')"><i class="ti ti-cash"></i> Rút toàn bộ (${fmt(sv._ai)})</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+          <input type="number" placeholder="Rút 1 phần (đ)" id="sv-wd-${sv.id}" style="max-width:160px;font-size:12px">
+          <button class="btn bo bsm" onclick="withdrawSaving('${sv.id}','partial')"><i class="ti ti-arrow-up"></i> Rút 1 phần</button>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -1002,6 +1008,13 @@ async function withdrawSaving(id,mode){
   const sv=DB.savings.find(s=>s.id===id);if(!sv)return;
   const calcAI2=s=>{if(!s.principal||!s.interest_rate||!s.start_date)return s.principal||0;const days=Math.max(0,Math.ceil((new Date()-new Date(s.start_date+'T00:00:00'))/(864e5)));return Math.round(s.principal*(1+s.interest_rate/100*days/365));};
   const currentVal=calcAI2(sv);
+
+  // Get target account
+  const accEl=document.getElementById('sv-acc-'+id);
+  const accId=accEl?accEl.value:'';
+  const targetAcc=DB.accounts.find(a=>a.id===accId);
+  if(!accId||!targetAcc)return alert('Vui lòng chọn tài khoản nhận tiền');
+
   let withdrawAmt=currentVal;
   if(mode==='partial'){
     const el=document.getElementById('sv-wd-'+id);
@@ -1010,24 +1023,30 @@ async function withdrawSaving(id,mode){
     if(isNaN(withdrawAmt)||withdrawAmt<=0)return alert('Số tiền không hợp lệ');
     if(withdrawAmt>currentVal)return alert('Vượt quá giá trị hiện tại ('+fmtF(currentVal)+')');
   }
-  const isFullWithdraw=withdrawAmt>=currentVal;
-  if(!confirm(`Rút ${fmtF(withdrawAmt)} từ "${sv.name}"?${isFullWithdraw?' Tài khoản tiết kiệm sẽ bị đóng.':''}`))return;
+  const isFullWithdraw=mode==='full';
+  if(!confirm(`Rút ${fmtF(withdrawAmt)} từ "${sv.name}" → vào "${targetAcc.name}"?${isFullWithdraw?' Tài khoản tiết kiệm sẽ bị đóng.':''}`))return;
   SS('s');
   const today=new Date().toISOString().split('T')[0];
-  // Record as income transaction
-  const interest=Math.max(0,withdrawAmt-(sv.principal*(withdrawAmt/currentVal)));
+
+  // 1. Record income transaction
   await sb.from('transactions').insert({
     date:today,
-    description:'Rút tiết kiệm: '+sv.name+(mode==='partial'?' (1 phần)':''),
-    category:'Thu nhập',type:'income',amount:withdrawAmt,payment_method:'Chuyển khoản'
+    description:'Rút tiết kiệm: '+sv.name+(mode==='partial'?' (1 phần)':'')+'  → '+targetAcc.name,
+    category:'Thu nhập',type:'income',amount:withdrawAmt,payment_method:targetAcc.name
   });
+
+  // 2. Add to target bank account balance
+  const newAccBal=targetAcc.balance+withdrawAmt;
+  const{error:accErr}=await sb.from('bank_accounts').update({balance:newAccBal,updated_at:new Date().toISOString()}).eq('id',accId);
+  if(accErr){alert('Lỗi cập nhật tài khoản: '+accErr.message);SS('e');return;}
+  DB.accounts=DB.accounts.map(a=>a.id===accId?{...a,balance:newAccBal}:a);
+
+  // 3. Update or close saving
   if(isFullWithdraw){
-    // Close saving account
     const{error}=await sb.from('savings').delete().eq('id',id);
     if(error){alert('Lỗi: '+error.message);SS('e');return;}
     DB.savings=DB.savings.filter(s=>s.id!==id);
   } else {
-    // Reduce principal proportionally
     const ratio=withdrawAmt/currentVal;
     const newPrincipal=Math.round(sv.principal*(1-ratio));
     const newVal=currentVal-withdrawAmt;
@@ -1035,10 +1054,14 @@ async function withdrawSaving(id,mode){
     if(error){alert('Lỗi: '+error.message);SS('e');return;}
     DB.savings=DB.savings.map(s=>s.id===id?{...s,principal:newPrincipal,current_value:newVal}:s);
   }
-  // Reload transactions
+
+  // 4. Reload transactions & accounts
   const{data}=await sb.from('transactions').select('*').order('date',{ascending:false}).order('created_at',{ascending:false});
   if(data)DB.transactions=data;
+  const{data:freshAccs}=await sb.from('bank_accounts').select('*');
+  if(freshAccs)DB.accounts=freshAccs;
   SS('ok');renderSavings();
+  alert(`✅ Đã rút ${fmtF(withdrawAmt)} vào "${targetAcc.name}". Số dư mới: ${fmtF(newAccBal)}`);
 }
 
 async function addTx(){
