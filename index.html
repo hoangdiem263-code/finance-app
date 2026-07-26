@@ -1076,7 +1076,14 @@ async function addTx(){
   if(error){alert('Lỗi: '+error.message);SS('e');}else{
     document.getElementById('tx-desc').value='';document.getElementById('tx-amount').value='';
     const{data}=await sb.from('transactions').select('*').order('date',{ascending:false}).order('created_at',{ascending:false});
-    if(data)DB.transactions=data;SS('ok');renderTx();populateTxPay();
+    if(data)DB.transactions=data;
+    // Reload cards to get fresh balance
+    const{data:freshCards}=await sb.from('credit_cards').select('*');
+    if(freshCards)DB.cards=freshCards;
+    // Reload accounts too
+    const{data:freshAccs}=await sb.from('bank_accounts').select('*');
+    if(freshAccs)DB.accounts=freshAccs;
+    SS('ok');renderTx();populateTxPay();
   }
   btn.disabled=false;
 }
