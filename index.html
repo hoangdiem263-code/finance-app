@@ -450,6 +450,10 @@ input:focus,select:focus{border-color:var(--text2)}
       <button class="btn bp bsm" onclick="runSetupDB()" id="btn-setup-db"><i class="ti ti-database"></i> Setup DB</button>
     </div>
     <div id="setup-db-log" style="font-size:11px;color:var(--text2);margin-top:8px;display:none;line-height:1.8"></div>
+    <div class="sr" style="margin-top:8px">
+      <div><div class="srl">Cập nhật danh mục đầu tư TCBS</div><div class="srd">Nhập dữ liệu từ ảnh chụp TCBS ngày 26/07/2026</div></div>
+      <button class="btn bp bsm" onclick="seedInvestments()"><i class="ti ti-refresh"></i> Cập nhật ngay</button>
+    </div>
   </div>
 </div>
 
@@ -1581,6 +1585,50 @@ async function executeChatAction(parsed,today){
   }catch(e){
     SS('e');addMsg('Lỗi: '+e.message,'ai');
   }
+}
+
+// ── ONE-TIME INVESTMENT SEED (from screenshots 26/07/2026) ──
+async function seedInvestments(){
+  if(!confirm('Cập nhật toàn bộ danh mục đầu tư từ dữ liệu TCBS 26/07/2026?'))return;
+  SS('s');
+  const data=[
+    // Cổ phiếu: [name, qty, avg_cost, current_price]
+    {name:'FPT',  type:'stock', broker:'TCBS', quantity:835,   avg_cost:95440, current_price:62900},
+    {name:'HPG',  type:'stock', broker:'TCBS', quantity:470,   avg_cost:24370, current_price:20800},
+    {name:'ITA',  type:'stock', broker:'TCBS', quantity:100,   avg_cost:17120, current_price:2300},
+    {name:'MBB',  type:'stock', broker:'TCBS', quantity:400,   avg_cost:24550, current_price:21900},
+    {name:'NVL',  type:'stock', broker:'TCBS', quantity:107,   avg_cost:15070, current_price:12950},
+    {name:'VCB',  type:'stock', broker:'TCBS', quantity:90,    avg_cost:62970, current_price:54100},
+    // Quỹ mở: NAV từ TCBS app
+    {name:'VCBFBCF', type:'fund', broker:'TCBS', quantity:123.86, avg_cost:39049, current_price:39049},
+    {name:'TCFIN',   type:'fund', broker:'TCBS', quantity:915.47, avg_cost:12852, current_price:12852},
+    {name:'TCRES',   type:'fund', broker:'TCBS', quantity:307.83, avg_cost:11920, current_price:11920},
+    {name:'VCBFFIF', type:'fund', broker:'TCBS', quantity:50.04,  avg_cost:16013, current_price:16013},
+    {name:'DCDS',    type:'fund', broker:'TCBS', quantity:64.82,  avg_cost:91834, current_price:91834},
+    {name:'TCEF',    type:'fund', broker:'TCBS', quantity:264.78, avg_cost:19188, current_price:19188},
+  ];
+  let ok=0,err=0;
+  for(const item of data){
+    const existing=DB.investments.find(i=>i.name.toUpperCase()===item.name.toUpperCase());
+    if(existing){
+      const{error}=await sb.from('investments').update({
+        quantity:item.quantity, avg_cost:item.avg_cost,
+        current_price:item.current_price, updated_at:new Date().toISOString()
+      }).eq('id',existing.id);
+      if(error){console.error(item.name,error);err++;}else ok++;
+    } else {
+      const{error}=await sb.from('investments').insert({...item,updated_at:new Date().toISOString()});
+      if(error){console.error(item.name,error);err++;}else ok++;
+    }
+  }
+  // Reload
+  const{data:fresh}=await sb.from('investments').select('*').order('type').order('name');
+  if(fresh)DB.investments=fresh;
+  SS('ok');
+  const stockVal=DB.investments.filter(i=>i.type==='stock').reduce((s,i)=>s+i.quantity*i.current_price,0);
+  const fundVal=DB.investments.filter(i=>i.type==='fund').reduce((s,i)=>s+i.quantity*i.current_price,0);
+  alert(`✅ Cập nhật xong ${ok} mã (${err} lỗi)\n\nCổ phiếu: ${fmt(stockVal)}\nQuỹ mở: ${fmt(fundVal)}\nTổng: ${fmt(stockVal+fundVal)}`);
+  if(document.getElementById('page-investments').classList.contains('active'))renderInvestments();
 }
 
 function calcEndDate(){const s=document.getElementById('sv-start').value;const dur=parseInt(document.getElementById('sv-duration')?document.getElementById('sv-duration').value:6)||6;if(!s){document.getElementById('sv-end-display').value='';return;}const d=new Date(s+'T00:00:00');d.setMonth(d.getMonth()+dur);const el=document.getElementById('sv-end-display');el.value=d.toLocaleDateString('vi-VN');el.dataset.isodate=d.toISOString().split('T')[0];}
