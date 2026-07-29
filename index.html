@@ -457,6 +457,52 @@ input:focus,select:focus{border-color:var(--text2)}
   </div>
 </div>
 
+
+<!-- EDIT TRANSACTION MODAL -->
+<div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;align-items:center;justify-content:center">
+  <div style="background:var(--bg);border-radius:var(--rl);padding:24px;width:90%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,0.3)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+      <div style="font-size:15px;font-weight:600">Sửa giao dịch</div>
+      <button onclick="closeEditModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="fr" style="margin-bottom:10px">
+      <div class="fc"><label class="fl">Ngày</label><input type="date" id="edit-date"></div>
+      <div class="fc" style="flex:2"><label class="fl">Nội dung</label><input type="text" id="edit-desc" placeholder="Mô tả giao dịch..."></div>
+    </div>
+    <div class="fr" style="margin-bottom:10px">
+      <div class="fc"><label class="fl">Danh mục</label>
+        <select id="edit-cat">
+          <option>Ăn uống</option><option>Di chuyển</option><option>Mua sắm</option>
+          <option>Giải trí</option><option>Sức khỏe</option><option>Gia đình</option>
+          <option>Hóa đơn</option><option>Học tập</option><option>Thu nhập</option>
+          <option>Tiết kiệm</option><option>Chi hộ</option><option>Đầu tư</option>
+          <option>Quyên góp</option><option>Khác</option>
+        </select>
+      </div>
+      <div class="fc"><label class="fl">Loại</label>
+        <select id="edit-type">
+          <option value="expense">Chi tiêu</option><option value="income">Thu nhập</option>
+          <option value="saving">Tiết kiệm</option><option value="on-behalf">Chi hộ</option>
+          <option value="refund">Hoàn tiền</option><option value="cc">Thẻ tín dụng</option>
+        </select>
+      </div>
+    </div>
+    <div class="fr" style="margin-bottom:16px">
+      <div class="fc"><label class="fl">Phương thức</label>
+        <select id="edit-pay">
+          <option>Tiền mặt</option><option>Thẻ nội địa</option><option>Visa</option>
+          <option>Mastercard</option><option>Chuyển khoản</option><option>Momo</option>
+        </select>
+      </div>
+      <div class="fc"><label class="fl">Số tiền (đ)</label><input type="number" id="edit-amount" placeholder="0"></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn bo" onclick="closeEditModal()">Huỷ</button>
+      <button class="btn bp" onclick="saveEditTx()"><i class="ti ti-check"></i> Lưu thay đổi</button>
+    </div>
+  </div>
+</div>
+
 <!-- CLAUDE CHAT FAB -->
 <button class="chat-fab" onclick="toggleChat()" title="Chat với Claude để nhập liệu"><i class="ti ti-message-chatbot"></i></button>
 <div class="chat-panel hidden" id="chat-panel">
@@ -975,6 +1021,7 @@ function renderTx(){
     <div class="rm"><div class="rn">${t.description}</div><div class="rs">${t.date} · ${t.category} · ${t.payment_method}</div></div>
     <span class="tag ${TT[t.type]}">${TL[t.type]}</span>
     <div class="ra ${t.type==='income'||t.type==='refund'?'cg':'cr'}">${t.type==='income'||t.type==='refund'?'+':'−'}${fmt(t.amount)}</div>
+    <button class="btn bo bsm" onclick="openEditModal('${t.id}')" style="padding:4px 8px"><i class="ti ti-edit"></i></button>
     <button class="bd" onclick="delTx('${t.id}')"><i class="ti ti-trash"></i></button>
   </div>`).join('');
 }
@@ -1630,6 +1677,52 @@ async function seedInvestments(){
   alert(`✅ Cập nhật xong ${ok} mã (${err} lỗi)\n\nCổ phiếu: ${fmt(stockVal)}\nQuỹ mở: ${fmt(fundVal)}\nTổng: ${fmt(stockVal+fundVal)}`);
   if(document.getElementById('page-investments').classList.contains('active'))renderInvestments();
 }
+
+// ── EDIT TRANSACTION ──
+let _editingTxId = null;
+
+function openEditModal(id){
+  const t = DB.transactions.find(t=>t.id===id);
+  if(!t) return;
+  _editingTxId = id;
+  document.getElementById('edit-date').value = t.date;
+  document.getElementById('edit-desc').value = t.description;
+  document.getElementById('edit-cat').value = t.category;
+  document.getElementById('edit-type').value = t.type;
+  document.getElementById('edit-pay').value = t.payment_method||'Tiền mặt';
+  document.getElementById('edit-amount').value = t.amount;
+  const modal = document.getElementById('edit-modal');
+  modal.style.display = 'flex';
+}
+
+function closeEditModal(){
+  document.getElementById('edit-modal').style.display = 'none';
+  _editingTxId = null;
+}
+
+async function saveEditTx(){
+  if(!_editingTxId) return;
+  const date = document.getElementById('edit-date').value;
+  const description = document.getElementById('edit-desc').value.trim();
+  const category = document.getElementById('edit-cat').value;
+  const type = document.getElementById('edit-type').value;
+  const payment_method = document.getElementById('edit-pay').value;
+  const amount = parseInt(document.getElementById('edit-amount').value);
+  if(!description||!date||isNaN(amount)||amount<=0) return alert('Điền đầy đủ thông tin');
+  SS('s');
+  const{error}=await sb.from('transactions').update({
+    date, description, category, type, payment_method, amount,
+    updated_at: new Date().toISOString()
+  }).eq('id', _editingTxId);
+  if(error){alert('Lỗi: '+error.message);SS('e');return;}
+  DB.transactions = DB.transactions.map(t=>t.id===_editingTxId?{...t,date,description,category,type,payment_method,amount}:t);
+  SS('ok');closeEditModal();renderTx();
+}
+
+// Close modal on backdrop click
+document.getElementById('edit-modal').addEventListener('click', function(e){
+  if(e.target===this) closeEditModal();
+});
 
 function calcEndDate(){const s=document.getElementById('sv-start').value;const dur=parseInt(document.getElementById('sv-duration')?document.getElementById('sv-duration').value:6)||6;if(!s){document.getElementById('sv-end-display').value='';return;}const d=new Date(s+'T00:00:00');d.setMonth(d.getMonth()+dur);const el=document.getElementById('sv-end-display');el.value=d.toLocaleDateString('vi-VN');el.dataset.isodate=d.toISOString().split('T')[0];}
 
