@@ -436,6 +436,9 @@ input:focus,select:focus{border-color:var(--text2)}
       <div class="fc"><label class="fl">Tên hiển thị</label><input type="text" id="set-name" placeholder="Tên của bạn"></div>
       <div class="fc"><label class="fl">Thu nhập hàng tháng (đ)</label><input type="number" id="set-income" placeholder="32000000"></div>
     </div>
+    <div class="fr" style="margin-bottom:12px">
+      <div class="fc" style="flex:3"><label class="fl">Anthropic API Key (để dùng Claude chat)</label><input type="password" id="set-apikey" placeholder="sk-ant-..."></div>
+    </div>
     <button class="btn bp" onclick="saveSettings()"><i class="ti ti-check"></i> Lưu</button>
   </div>
   <div class="card">
@@ -591,7 +594,11 @@ function applySettings(){
   document.getElementById('uname').textContent=DB.settings.name;
   document.getElementById('set-name').value=DB.settings.name;
   document.getElementById('set-income').value=DB.settings.monthly_income;
+  const savedKey=localStorage.getItem('anthropic_api_key')||'';
+  if(savedKey)document.getElementById('set-apikey').value=savedKey;
 }
+
+function getApiKey(){return localStorage.getItem('anthropic_api_key')||'';}
 
 function subscribeRT(){
   sb.channel('all-changes')
@@ -1475,6 +1482,8 @@ async function delGoal(id){if(!confirm('Xóa mục tiêu này?'))return;SS('s');
 async function saveSettings(){
   const name=document.getElementById('set-name').value.trim()||'Người dùng';
   const income=parseInt(document.getElementById('set-income').value)||32000000;
+  const apiKey=document.getElementById('set-apikey').value.trim();
+  if(apiKey)localStorage.setItem('anthropic_api_key',apiKey);
   SS('s');let error;
   if(DB.settings?.id){({error}=await sb.from('settings').update({name,monthly_income:income,updated_at:new Date().toISOString()}).eq('id',DB.settings.id));}
   else{const res=await sb.from('settings').insert({name,monthly_income:income}).select().single();DB.settings=res.data;error=res.error;}
@@ -1551,7 +1560,7 @@ Ngày hôm nay: ${today}`;
 
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
-      headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-allow-cors':'true'},
+      headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-allow-cors':'true','x-api-key':getApiKey()},
       body:JSON.stringify({
         model:'claude-sonnet-4-6',max_tokens:500,
         system:CLAUDE_SYSTEM+' '+context,
@@ -1567,7 +1576,13 @@ Ngày hôm nay: ${today}`;
     thinking.remove();
     await executeChatAction(parsed,today);
   }catch(e){
-    thinking.className='msg ai';thinking.textContent='Lỗi kết nối Claude API. Kiểm tra kết nối internet.';
+    thinking.className='msg ai';
+    const apiKey=getApiKey();
+    if(!apiKey||apiKey==='sk-ant-placeholder'){
+      thinking.innerHTML='❌ Chưa có API key.<br>Vào <b>Cài đặt</b> → nhập <b>Anthropic API Key</b> → Lưu rồi thử lại.';
+    } else {
+      thinking.textContent='Lỗi kết nối Claude API: '+e.message;
+    }
     console.error(e);
   }
 }
