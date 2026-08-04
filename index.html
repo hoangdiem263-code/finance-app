@@ -356,7 +356,7 @@ input:focus,select:focus{border-color:var(--text2)}
     </div>
     <div class="fr">
       <div class="fc"><label class="fl">Danh mục</label>
-        <select id="tx-cat"><option>Ăn uống</option><option>Di chuyển</option><option>Mua sắm</option><option>Giải trí</option><option>Sức khỏe</option><option>Gia đình</option><option>Hóa đơn</option><option>Học tập</option><option>Thu nhập</option><option>Tiết kiệm</option><option>Chi hộ</option><option>Đầu tư</option><option>Quyên góp</option><option>Khác</option></select>
+        <select id="tx-cat"><option>Ăn uống</option><option>Di chuyển</option><option>Mua sắm</option><option>Giải trí</option><option>Sức khỏe</option><option>Gia đình</option><option>Hóa đơn</option><option>Học tập</option><option>Quan hệ</option><option>Thu nhập</option><option>Tiết kiệm</option><option>Chi hộ</option><option>Đầu tư</option><option>Quyên góp</option><option>Khác</option></select>
       </div>
       <div class="fc"><label class="fl">Loại</label>
         <select id="tx-type" onchange="populateTxPay()"><option value="expense">Chi tiêu</option><option value="income">Thu nhập</option><option value="saving">Tiết kiệm</option><option value="on-behalf">Chi hộ</option><option value="refund">Hoàn tiền</option><option value="cc">Thẻ tín dụng</option></select>
@@ -573,7 +573,7 @@ let txFilter='all',invFilter='all';
 let chartNW=null,chartCat=null,chartFlow=null;
 
 const CC=['#1D9E75','#378ADD','#BA7517','#D4537E','#7F77DD','#D85A30','#639922','#888780','#E24B4A','#0F6E56'];
-const CI={'Ăn uống':'ti-soup','Di chuyển':'ti-car','Mua sắm':'ti-shopping-bag','Giải trí':'ti-device-gamepad','Sức khỏe':'ti-heart','Gia đình':'ti-home','Hóa đơn':'ti-receipt','Thu nhập':'ti-cash','Tiết kiệm':'ti-piggy-bank','Chi hộ':'ti-users','Đầu tư':'ti-trending-up','Học tập':'ti-school','Quyên góp':'ti-heart-handshake','Khác':'ti-dots'};
+const CI={'Ăn uống':'ti-soup','Di chuyển':'ti-car','Mua sắm':'ti-shopping-bag','Giải trí':'ti-device-gamepad','Sức khỏe':'ti-heart','Gia đình':'ti-home','Hóa đơn':'ti-receipt','Thu nhập':'ti-cash','Tiết kiệm':'ti-piggy-bank','Chi hộ':'ti-users','Đầu tư':'ti-trending-up','Học tập':'ti-school','Quan hệ':'ti-friends','Quyên góp':'ti-heart-handshake','Khác':'ti-dots'};
 const TL={expense:'Chi tiêu',income:'Thu nhập',saving:'Tiết kiệm','on-behalf':'Chi hộ',refund:'Hoàn tiền',cc:'Thẻ TD'};
 const TT={expense:'ta',income:'tg',saving:'tb','on-behalf':'tp',refund:'tg',cc:'tr'};
 const INV_TYPE={stock:'Cổ phiếu',fund:'Quỹ mở',gold:'Vàng',foreign_currency:'Ngoại tệ',other:'Khác'};
